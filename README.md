@@ -40,4 +40,4 @@ python -m pytest -q tests
 python run.py
 ```
 
-Para publicar: altere `notara/__init__.py`, crie a tag `vX.Y.Z` e envie. O GitHub Actions testa, gera o instalador e publica em Releases.
+Para publicar: aumente a versão em `notara/__init__.py` e envie para `main`. O GitHub Actions testa, gera o instalador e publica em Releases (a tag é criada sozinha).

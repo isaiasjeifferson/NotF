@@ -2,7 +2,7 @@ name: Gerar instalador
 
 on:
   push:
-    tags: ["v*"]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -26,10 +26,6 @@ jobs:
         id: v
         shell: bash
         run: echo "versao=$(python installer/versao.py)" >> "$GITHUB_OUTPUT"
-      - name: Conferir tag e versão
-        if: startsWith(github.ref, 'refs/tags/')
-        shell: bash
-        run: test "${GITHUB_REF_NAME#v}" = "${{ steps.v.outputs.versao }}"
       - name: Programa
         run: pyinstaller --noconfirm --distpath build/dist --workpath build/work notara.spec
       - name: WebView2 (instalador oficial da Microsoft)
@@ -48,8 +44,9 @@ jobs:
           path: dist/*.exe
 
   publicar:
+    # Publica quando a versão em notara/__init__.py ainda não tem release.
     needs: build
-    if: startsWith(github.ref, 'refs/tags/')
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -60,4 +57,11 @@ jobs:
       - name: Publicar versão
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" *.exe --repo "$GITHUB_REPOSITORY" --title "Notara ${{ needs.build.outputs.versao }}" --generate-notes
+          TAG: v${{ needs.build.outputs.versao }}
+        run: |
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "A versão $TAG já foi publicada. Para publicar, aumente a versão em notara/__init__.py."
+            exit 0
+          fi
+          gh release create "$TAG" *.exe --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+            --title "Notara ${{ needs.build.outputs.versao }}" --generate-notes
