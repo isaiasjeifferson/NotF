@@ -557,9 +557,10 @@ const app={
       sec.hidden=true; prim.disabled=false; prim.textContent='Voltar à lista'; prim.dataset.a='voltarLista';
     } else if(this.fase==='pronto'){
       const resto=n.length-ok;
-      $('#qtd').textContent=`${plural(ok,'emitida','emitidas')}${falhas?` · ${falhas} com erro`:''}`;
-      sec.hidden=false; sec.disabled=false; sec.textContent=resto?`Voltar à lista (${resto})`:'Nova lista'; sec.dataset.a='voltarLista';
-      prim.disabled=false; prim.textContent=falhas?`Tentar ${falhas} de novo`:'Abrir pasta'; prim.dataset.a=falhas?'reenviar':'abrirPasta';
+      $('#qtd').textContent=`${plural(ok,'emitida','emitidas')}${falhas?` · ${falhas} com erro`:''}${resto-falhas>0?` · ${resto-falhas} para depois`:''}`;
+      if(falhas){ sec.hidden=false; sec.disabled=false; sec.textContent='Concluir'; sec.dataset.a='voltarLista';
+        prim.disabled=false; prim.textContent=`Tentar ${falhas} de novo`; prim.dataset.a='reenviar'; }
+      else { sec.hidden=true; prim.disabled=false; prim.textContent=resto?`Concluir · ${resto} na lista`:'Concluir'; prim.dataset.a='voltarLista'; }
     } else {
       $('#qtd').textContent=marcadas.length===n.length?plural(n.length,'nota','notas'):`${marcadas.length} de ${n.length} notas`;
       sec.hidden=false; sec.disabled=false; sec.textContent='Limpar'; sec.dataset.a='limpar';
@@ -587,12 +588,30 @@ const app={
       <div class="cont">${ok?`<span><b>${ok}</b> emitidas</span>`:''}<span><b>${parados}</b> não enviadas · continuam na lista</span></div>
       <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">${T[2].map(([t,a,c])=>`<button class="btn ${c}" data-a="${a}">${t}</button>`).join('')}</div></div>`;
   },
+  cartaoConclusao(){
+    const itens=this.fila.map(i=>this.st[i]).filter(s=>s?.status==='ok'), ok=itens.length;
+    const erro=this.fila.filter(i=>['erro','incerto','parado'].includes(this.st[i]?.status)).length;
+    const total=this.fila.filter(i=>this.st[i]?.status==='ok').reduce((a,i)=>a+this.notas[i].valor,0);
+    const semPdf=itens.filter(s=>!s.item.pdf).length, nums=itens.map(s=>+s.item.numero).filter(Boolean).sort((a,b)=>a-b);
+    const faixa=nums.length?(nums.length>1?`Nº ${nums[0]} a ${nums.at(-1)}`:`Nº ${nums[0]}`):'';
+    const tudo=!erro, cor=tudo?'var(--green)':'var(--orange)';
+    return `<div class="progresso" role="status" style="display:flex;gap:16px;align-items:center">
+      <div style="width:48px;height:48px;border-radius:50%;background:color-mix(in srgb,${cor} 15%,transparent);color:${cor};display:grid;place-items:center;flex:none">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">${tudo?'<path d="M5 12.5l4.5 4.5L19 7.5"/>':'<path d="M12 7v6M12 17h.01"/>'}</svg></div>
+      <div class="main">
+        <b style="font-size:16px">${tudo?(ok===1?'Nota emitida':`${ok} notas emitidas`):`${plural(ok,'nota emitida','notas emitidas')} · ${plural(erro,'com problema','com problema')}`}</b>
+        <div class="s" style="white-space:normal;margin-top:2px">${[ok?brl(total):'',faixa,ok?(semPdf?`PDF em preparo para ${plural(semPdf,'nota','notas')}. O Notara busca sozinho.`:'PDFs salvos na pasta.'):'',erro?'Corrija as notas marcadas e tente de novo.':''].filter(Boolean).join(' · ')}</div>
+      </div>
+      <div style="display:flex;gap:8px;flex:none">${ok?'<button class="btn" data-a="verHistorico">Ver no histórico</button>':''}${ok?'<button class="btn" data-a="abrirPasta">Abrir pasta</button>':''}</div></div>`;
+  },
+  verHistorico(){ this.aba('historico'); },
   reenviarParados(){ this.enviar(this.fila.filter(i=>this.st[i]?.status==='parado'||this.st[i]?.status==='erro')); },
   abrirTesteConexao(){ this.ajustes('notas'); setTimeout(()=>this.testar(),50); },
   ETAPAS:['Preparando a nota','Reservando o número','Enviando à Receita','Baixando o PDF'],
   cartaoProgresso(){
     if(this.fase==='lista'||!this.fila) return '';
     if(this.fase==='pronto'&&this.bloqueio) return this.cartaoBloqueio();
+    if(this.fase==='pronto') return this.cartaoConclusao();
     const total=this.fila.length, sts=this.fila.map(i=>this.st[i]), ok=sts.filter(s=>s?.status==='ok').length,
       erro=sts.filter(s=>s?.status==='erro'||s?.status==='incerto').length, feitos=ok+erro, atual=sts.find(s=>s?.status==='enviando');
     const fim=this.fase==='pronto', frac=fim?1:(feitos+(atual?((atual.etapa||0)+.5)/4:0))/total, pct=Math.round(frac*100);
@@ -651,6 +670,7 @@ const app={
     this.confirmar('Limpar a lista?',`${plural(this.notas.length,'nota será excluída','notas serão excluídas')} da lista, inclusive as guardadas para depois.`,'Limpar',true,()=>this.reset());
   },
   voltarLista(){
+    if(this.fase==='pronto'&&!this.bloqueio){ const ok=this.st.filter(x=>x?.status==='ok').length; if(ok) setTimeout(()=>this.toast(`${plural(ok,'nota está','notas estão')} no Histórico`,{acao:'Ver',fn:()=>this.aba('historico')}),50); }
     this.bloqueio=null;
     const resto=this.notas.filter((_,i)=>this.st[i]?.status!=='ok');
     this.notas=resto; this.st=[]; this.fase='lista'; this.erroEnvio=null; this.avisos(); this.render();
