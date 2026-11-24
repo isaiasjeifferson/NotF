@@ -1019,7 +1019,14 @@ const app={
     if(up?.versao){ this.update=up; this.avisos(); v.textContent=`Versão ${up.versao} disponível`; b.textContent='Atualizar agora'; b.dataset.a='atualizar'; }
     else { v.textContent=up?.atual?'Você está na versão mais recente':up?.erro||'Sem conexão. Tente de novo.'; v.style.whiteSpace='normal'; }
   },
-  async atualizar(){ this.toast('Baixando atualização…'); const r=await api().instalar_atualizacao(); if(!r.ok) this.toast(r.erro); else this.toast('Instalando. O Notara abre de novo em instantes.'); },
+  async atualizar(){
+    this.fechar();
+    this.folha2(`Atualizando para a versão ${esc(this.update?.versao||'')}`,'Baixando e instalando. O Notara fecha e abre de novo sozinho, em poucos segundos.',
+      '<div class="trilho" style="margin:6px 0 10px"><i style="width:100%"></i></div>','Aguarde',()=>{},{soOk:true});
+    $('#sheet2-ok').disabled=true;
+    const r=await api().instalar_atualizacao();
+    if(!r.ok){ this.fechar2(); this.toast(r.erro); }
+  },
 
   /* ================= Perfis de empresa ================= */
   iniciais(n){ const p=String(n||'?').replace(/\b(LTDA|ME|EPP|EIRELI|S\/?A|SERVICOS?|COMERCIO|DE|DA|DO|DOS|DAS|E)\b/gi,' ').split(/[^A-Za-zÀ-ÿ0-9]+/).filter(Boolean); return ((p[0]||'?')[0]+(p[1]?.[0]||'')).toUpperCase(); },

@@ -813,7 +813,8 @@ class Api:
             if h.hexdigest() != u["sha256"] or (u["tamanho"] and os.path.getsize(destino) != u["tamanho"]):
                 os.remove(destino)
                 return {"ok": False, "erro": "A atualização baixada não confere. Tente mais tarde."}
-            subprocess.Popen([destino, "/SILENT", "/SUPPRESSMSGBOXES", "/NORESTART"], close_fds=True)
+            # Atualização sem janela: o Notara mostra o andamento e o instalador roda em silêncio.
+            subprocess.Popen([destino, "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART"], close_fds=True)
             threading.Timer(1.5, lambda: os._exit(0)).start()
             return {"ok": True}
         except (requests.RequestException, OSError):

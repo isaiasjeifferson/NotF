@@ -47,9 +47,40 @@ Filename: "{app}\Notara.exe"; Flags: nowait
 [Messages]
 SetupWindowTitle=Instalando o Notara
 WizardInstalling=Instalando o Notara
-InstallingLabel=Isso leva poucos segundos. O Notara abre sozinho ao terminar.
+InstallingLabel=
+StatusExtractFiles=Copiando arquivos…
+StatusCreateIcons=Criando atalhos…
+StatusRunProgram=Abrindo o Notara…
+StatusClosingApplications=Fechando o Notara…
+StatusRestartingApplications=Abrindo o Notara…
 
 [Code]
+var Titulo: TNewStaticText;
+
+procedure InitializeWizard;
+begin
+  { Visual limpo, alinhado ao Notara: fundo branco, sem faixa superior e sem divisórias }
+  WizardForm.Color := clWhite;
+  WizardForm.InnerPage.Color := clWhite;
+  WizardForm.MainPanel.Visible := False;
+  WizardForm.Bevel1.Visible := False;
+  WizardForm.Bevel.Visible := False;
+  WizardForm.Font.Name := 'Segoe UI';
+
+  Titulo := TNewStaticText.Create(WizardForm);
+  Titulo.Parent := WizardForm.InstallingPage;
+  Titulo.Caption := 'Instalando o Notara';
+  Titulo.Font.Name := 'Segoe UI';
+  Titulo.Font.Size := 15;
+  Titulo.Font.Style := [fsBold];
+  Titulo.Top := ScaleY(8);
+  Titulo.Left := 0;
+
+  WizardForm.StatusLabel.Top := Titulo.Top + ScaleY(44);
+  WizardForm.FilenameLabel.Visible := False;
+  WizardForm.ProgressGauge.Top := WizardForm.StatusLabel.Top + ScaleY(26);
+end;
+
 const WV2 = 'SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}';
 const WV2B = 'Software\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}';
 
