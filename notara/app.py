@@ -139,7 +139,8 @@ class Api:
         return {
             "versao": __version__,
             "mes": f"{dados.MESES[hoje.month - 1]} de {hoje.year}",
-            "empresas": [{"cnpj": c, "nome": e.get("apelido") or e["nome"]} for c, e in a["empresas"].items()],
+            "empresas": [{"cnpj": c, "nome": e.get("apelido") or e["nome"], "razao": e["nome"],
+                          "ambiente": e.get("ambiente", "teste")} for c, e in a["empresas"].items()],
             "empresa": _publico(p),
             "certificado": cert,
             "historico": historico,

@@ -17,6 +17,7 @@ Emissor de NFS-e para o Sistema Nacional da Receita. Feito para emitir várias n
 - **Clientes salvos:** busque pelo nome (`Ctrl+K`), escolha a unidade e informe o valor. Ou adicione todas as unidades com o último valor.
 - **PDF ou lista:** arraste o PDF com a lista ou cole a lista (`Ctrl+V`).
 - **À mão:** `Ctrl+N`.
+- **Várias empresas:** clique no círculo com as iniciais (ou `Ctrl+Shift+E`) e troque com um clique. `Ctrl+2`, `Ctrl+3`… trocam direto.
 - Confira e clique em **Emitir**. O histórico guarda PDF, XML e permite cancelar.
 
 ## O que precisa
