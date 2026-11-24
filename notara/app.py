@@ -327,10 +327,31 @@ class Api:
         return {"ok": True, "estado": self.estado()}
 
     def testar_conexao(self, senha=None, ambiente=None):
+        """Testa a conexão no ambiente pedido; sem ambiente, testa teste e produção (só leitura)."""
         def f():
             perfil = self._perfil()
-            return self._receita(perfil, self._cert(perfil, senha), ambiente).testar(perfil["municipio_ibge"])
+            cert = self._cert(perfil, senha)
+            log.info("teste: certificado %s, CNPJ %s, validade %s, %d certificado(s) da cadeia no arquivo",
+                     cert.nome, cert.cnpj, cert.resumo()["validade"], len(cert.extras))
+            res = {}
+            for amb in ([ambiente] if ambiente else ["teste", "producao"]):
+                try:
+                    res[amb] = {"ok": True, **self._receita(perfil, cert, amb).testar(perfil["municipio_ibge"])}
+                except NfseErro as e:
+                    res[amb] = {"ok": False, "erro": str(e)}
+            alvo = res.get(ambiente or perfil["ambiente"]) or next(iter(res.values()))
+            if not alvo["ok"] and not any(r["ok"] for r in res.values()):
+                raise NfseErro(alvo["erro"])
+            return {"ambientes": res, "municipio_ativo": alvo.get("municipio_ativo", False)}
         return self._tratar(f)
+
+    def registro(self, linhas=40):
+        """Últimas linhas do registro, para mostrar dentro do programa."""
+        try:
+            texto = LOG.read_text(encoding="utf-8", errors="replace").splitlines()[-int(linhas):]
+        except FileNotFoundError:
+            texto = []
+        return {"ok": True, "texto": "\n".join(texto), "versao": __version__}
 
     # ------------------------------------------------------------ lista de notas
     def importar_pdf(self, b64):

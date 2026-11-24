@@ -154,7 +154,8 @@ details summary::before{content:"›";display:inline-block;margin-right:6px;tran
 #scrim2{z-index:12}
 @keyframes fade{from{opacity:0}}
 .sheet{background:var(--bg);width:min(540px,92vw);max-height:88vh;display:flex;flex-direction:column;border-radius:14px;box-shadow:0 24px 64px rgba(0,0,0,.28);animation:pop .22s cubic-bezier(.2,.9,.3,1.1)}
-#sheet2{width:min(380px,90vw)}
+#sheet2{width:min(420px,90vw)}
+#sheet2:has(#reg-txt){width:min(640px,92vw)}
 @keyframes pop{from{transform:scale(.96);opacity:0}}
 .sh{padding:16px 16px 6px;text-align:center}
 .sh h3{font-size:15px;font-weight:600}
@@ -468,14 +469,18 @@ const app={
     const r=await api().salvar_empresa({cnpj:c.cert.cnpj,...c.empresa,servico:c.servico,descricao_modelo:c.modelo,pedir_senha:!c.guardar,pasta_compartilhada:c.compartilhada||''},true,null);
     if(!r.ok){ this.passo=r.erro.includes('serviço')||r.erro.includes('NBS')||r.erro.includes('municipal')?2:1; this.renderPasso(); return this.toast(r.erro); }
     this.s=r.estado; c.salvo=true; c.senhaSessao=c.guardar?null:$('#c-senha')?.value;
-    const t=await api().testar_conexao(c.guardar?null:c.senhaSessao||null,'teste');
-    c.con=t.ok?`${ICON.ok}<div><b>Conectado à Receita</b><div class="s">${t.municipio_ativo?'Seu município usa o Emissor Nacional.':'Conexão ok. Confira com a contabilidade se o seu município já usa o Emissor Nacional.'}</div></div>`
-      :`<span class="st erro">${ICON.erro}</span><div class="main"><b>Não foi possível conectar</b><div class="s" style="white-space:normal">${esc(t.erro==='SENHA'?'Teste a conexão no primeiro envio.':t.erro)}</div></div><button class="btn" data-a="retestar">Tentar de novo</button>`;
+    const t=await api().testar_conexao(c.guardar?null:c.senhaSessao||null,null);
+    c.con=this.cartaoConexao(t);
     if(this.passo===3) this.renderPasso();
   },
+  cartaoConexao(t){
+    if(t&&t.ok===false&&t.erro==='SENHA') return `<span class="s">A conexão será testada no primeiro envio.</span>`;
+    const tudoOk=t?.ok&&Object.values(t.ambientes||{}).every(x=>x.ok);
+    return `<div class="main"><b>${tudoOk?'Conectado à Receita':'Conexão com a Receita'}</b>${this.resultadoConexao(t)}</div>${tudoOk?'':'<button class="btn" data-a="retestar">Tentar de novo</button>'}`;
+  },
   async retestar(){ this.cad.con=null; this.cad.salvo=true; this.renderPasso();
-    const t=await this.comSenha(s=>api().testar_conexao(s,'teste'));
-    this.cad.con=t?.ok?`${ICON.ok}<div><b>Conectado à Receita</b></div>`:`<span class="st erro">${ICON.erro}</span><div class="main"><b>Não foi possível conectar</b><div class="s">${esc(t?.erro||'')}</div></div><button class="btn" data-a="retestar">Tentar de novo</button>`;
+    const t=await this.comSenha(s=>api().testar_conexao(s,null));
+    this.cad.con=this.cartaoConexao(t);
     this.renderPasso(); },
   async pastaCadastro(){
     const p=await api().escolher_pasta(); if(!p) return;
@@ -700,7 +705,8 @@ const app={
         </div>`,
       notas:`<div class="group">
           <div class="field"><span class="lbl">Ambiente</span><span class="spacer"></span>${segBtns('a-amb',[['teste','Teste'],['producao','Produção']],e.ambiente,{producao:!e.teste_ok})}</div>
-          <div class="field"><span class="lbl">Conexão com a Receita</span><div class="val" id="a-con"></div><button class="link" data-a="testar">Testar</button></div>
+          <div class="field"><span class="lbl">Conexão com a Receita</span><span class="spacer"></span><button class="link" data-a="testar" id="b-testar">Testar</button></div>
+          <div id="a-con" hidden style="padding:4px 16px 12px"></div>
         </div>
         <p class="hint">${e.teste_ok?'Na produção, as notas têm validade fiscal.':'Emita uma nota de teste para liberar a produção.'}</p>
         <div class="gt">Serviço</div>
@@ -731,7 +737,7 @@ const app={
         </div>
         <details><summary>Avançado</summary>
           <div class="group">${['producao','teste'].map(a=>['sefin','adn'].map(k=>`<div class="field col"><label for="u-${a}-${k}">${a==='producao'?'Produção':'Teste'} · ${k==='sefin'?'emissão':'PDF das notas'}</label><input id="u-${a}-${k}" value="${esc(u[a][k])}"></div>`).join('')).join('')}</div>
-          <p class="hint">Endereços oficiais da Receita. Só mude se a Receita anunciar outros. <button class="link" data-a="restaurarUrls">Restaurar padrão</button> <button class="link" data-a="abrirLog">Abrir registro de erros</button></p>
+          <p class="hint">Endereços oficiais da Receita. Só mude se a Receita anunciar outros. <button class="link" data-a="restaurarUrls">Restaurar padrão</button> <button class="link" data-a="verRegistro">Ver detalhes técnicos</button></p>
         </details>
         <div class="gt">Sobre</div>
         <div class="group">
@@ -784,9 +790,24 @@ const app={
     for(const a in d) for(const k in d[a]) $(`#u-${a}-${k}`).value=d[a][k];
     this.salvarCampo({urls:d},'u-producao-sefin'); },
   abrirLog(){ api().abrir_log(); },
-  async testar(){ const v=$('#a-con'); v.innerHTML='<span class="spin" style="display:inline-block;vertical-align:middle"></span>';
-    const r=await this.comSenha(s=>api().testar_conexao(s)); if(!$('#a-con')) return;
-    $('#a-con').innerHTML=r?.ok?'<span style="color:var(--green)">Conectado</span>':`<span style="color:var(--red)">${esc(r?.erro||'Não testado')}</span>`; },
+  resultadoConexao(r){
+    if(!r) return '';
+    const linha=(nome,x)=>`<div style="display:flex;gap:8px;align-items:flex-start;margin-top:8px"><span class="st ${x.ok?'ok':'erro'}">${x.ok?ICON.ok:ICON.erro}</span>
+      <div style="flex:1;min-width:0"><b style="font-weight:600">${nome}</b><div class="s" style="white-space:normal;user-select:text">${x.ok?'Conectado':esc(x.erro)}</div></div></div>`;
+    const amb=r.ambientes||{};
+    let html=Object.keys(amb).length?Object.entries(amb).map(([k,x])=>linha(k==='producao'?'Produção':'Teste',x)).join(''):linha('Receita',{ok:r.ok,erro:r.erro});
+    if(!r.ok||Object.values(amb).some(x=>!x.ok)) html+=`<div style="margin-top:8px"><button class="link" data-a="verRegistro">Ver detalhes técnicos</button></div>`;
+    return html;
+  },
+  async testar(){ const v=$('#a-con'), b=$('#b-testar'); v.hidden=false; v.innerHTML='<div class="spin" style="margin-top:8px"></div>'; b.disabled=true;
+    const r=await this.comSenha(s=>api().testar_conexao(s)); if(!$('#a-con')) return; b.disabled=false;
+    $('#a-con').innerHTML=r?this.resultadoConexao(r):''; },
+  async verRegistro(){
+    const r=await api().registro(60);
+    const abrir=()=>this.folha2('Detalhes técnicos','Envie este texto ao suporte, se precisar.',`<pre id="reg-txt" style="white-space:pre-wrap;word-break:break-word;font:12px/1.45 Consolas,ui-monospace,monospace;background:var(--fill2);padding:12px;border-radius:10px;max-height:46vh;overflow:auto;user-select:text">${esc(r.texto||'Nenhum registro ainda.')}</pre>`,
+      'Copiar',()=>{ navigator.clipboard.writeText(`Notara ${r.versao}\n${r.texto}`); this.toast('Copiado'); },{cancelar:'Fechar'});
+    abrir();
+  },
   async pasta(_,el){ const p=await api().escolher_pasta(); if(!p) return; const v=$('#'+el.dataset.alvo); v.dataset.valor=p; v.textContent=p;
     await this.salvarCampo(el.dataset.alvo==='a-pnotas'?{pasta_notas:p}:{pasta_compartilhada:p},el.dataset.alvo); if(el.dataset.alvo==='a-pcomp') this.ajustes('geral'); },
   async desligarComp(){ await this.salvarCampo({pasta_compartilhada:''},'a-pcomp'); this.ajustes('geral'); },

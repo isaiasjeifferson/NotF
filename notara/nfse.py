@@ -293,6 +293,23 @@ def _desempacotar(b64):
         return b""
 
 
+def _detalhe_http(r):
+    """Resumo legível de uma página de erro do servidor (ex.: IIS 403.7 'certificado do cliente exigido')."""
+    texto = re.sub(r"<[^>]+>", " ", r.text or "")
+    texto = re.sub(r"\s+", " ", texto).strip()
+    sub = re.search(r"\b40[13]\.\d+\b", texto)
+    conhecidos = {"403.7": "certificado do cliente exigido e não recebido",
+                  "403.16": "certificado não confiável ou cadeia incompleta",
+                  "403.13": "certificado revogado", "403.17": "certificado vencido",
+                  "403.14": "acesso negado ao endereço"}
+    if sub:
+        return f"{sub.group(0)}: {conhecidos.get(sub.group(0), 'acesso negado')}"
+    try:
+        return _mensagens(r.json())[:200]
+    except ValueError:
+        return texto[:160]
+
+
 def _gz64(xml: bytes):
     return base64.b64encode(gzip.compress(xml)).decode()
 
@@ -344,10 +361,12 @@ class Receita:
             raise SemResposta("Falha de comunicação com a Receita.") from e
 
     def testar(self, cmun):
-        r = self._req("GET", f"{self.urls['sefin']}/parametros_municipais/{cmun}/convenio")
-        logging.getLogger("notara").info("teste de conexão: HTTP %s %s", r.status_code, r.text[:300].replace("\n", " "))
+        url = f"{self.urls['sefin']}/parametros_municipais/{cmun}/convenio"
+        r = self._req("GET", url)
+        detalhe = _detalhe_http(r)
+        logging.getLogger("notara").info("teste de conexão %s: HTTP %s %s", url, r.status_code, detalhe)
         if r.status_code in (401, 403, 495, 496):
-            raise NfseErro(f"A Receita recusou a conexão (código {r.status_code}). Faça uma nota de teste para ver o motivo.")
+            raise NfseErro(f"A Receita recusou o acesso (HTTP {r.status_code}{' · ' + detalhe if detalhe else ''}).")
         if r.status_code >= 500:
             raise NfseErro("O sistema da Receita está fora do ar no momento.")
         return {"municipio_ativo": r.status_code == 200}
