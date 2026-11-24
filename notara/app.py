@@ -388,6 +388,34 @@ class Api:
                  for d, c in dados.clientes(p).items()]
         return sorted(lista, key=lambda c: c["usado"], reverse=True)
 
+    def clientes_resumo(self):
+        """Todos os clientes já usados, com totais calculados a partir do histórico."""
+        p = dados.empresa()
+        if not p:
+            return []
+        salvos = {c["cnpj"]: c for c in self.clientes_salvos()}
+        res = {}
+        for x in dados.historico(p):
+            doc = x.get("cnpj")
+            if not doc:
+                continue
+            r = res.setdefault(doc, {"cnpj": doc, "nome": x.get("nome", ""), "notas": 0, "total": 0.0, "ultima": "", "testes": 0})
+            if x.get("ambiente") == "teste":
+                r["testes"] += 1
+                continue
+            if x.get("situacao") == "emitida":
+                r["notas"] += 1
+                r["total"] += float(x.get("valor") or 0)
+                if not r["ultima"]:
+                    r["ultima"] = x.get("data", "")
+        for doc, c in salvos.items():
+            r = res.setdefault(doc, {"cnpj": doc, "nome": c["nome"], "notas": 0, "total": 0.0, "ultima": "", "testes": 0})
+            r["nome"] = c["nome"] or r["nome"]
+            r["unidades"] = c["unidades"]
+        for r in res.values():
+            r.setdefault("unidades", [])
+        return sorted(res.values(), key=lambda r: (r["notas"], r["total"]), reverse=True)
+
     def descricao_cliente(self, doc, unidade):
         """Repete a descrição usada da última vez, trocando o mês e o ano pelos atuais."""
         p = dados.empresa()
@@ -406,6 +434,14 @@ class Api:
         p = dados.empresa()
         if p and len(digitos(doc)) in (11, 14):
             dados.remover_cliente(p, digitos(doc), unidade)
+        return {"ok": True}
+
+    def renomear_cliente(self, doc, nome):
+        p = dados.empresa()
+        nome = str(nome or "").strip()[:150]
+        if not p or len(digitos(doc)) not in (11, 14) or not nome:
+            return {"ok": False, "erro": "Informe o nome."}
+        dados.salvar_cliente(p, digitos(doc), nome)
         return {"ok": True}
 
     def rascunho(self):
@@ -469,9 +505,9 @@ class Api:
         ok = 0
         try:
             for i, nota in enumerate(notas):
-                self._evento("progresso", {"i": i, "status": "enviando"})
+                self._evento("progresso", {"i": i, "status": "enviando", "etapa": 0})
                 try:
-                    item = self._uma(perfil, cert, receita, nota)
+                    item = self._uma(perfil, cert, receita, nota, lambda e, i=i: self._evento("etapa", {"i": i, "etapa": e}))
                     ok += 1
                     self._evento("progresso", {"i": i, "status": "ok", "item": item})
                 except SemResposta as e:
@@ -496,7 +532,7 @@ class Api:
                 est = None
             self._evento("fim", {"ok": ok, "total": len(notas), "estado": est})
 
-    def _uma(self, perfil, cert, receita, nota):
+    def _uma(self, perfil, cert, receita, nota, etapa=lambda e: None):
         doc = digitos(nota.get("cnpj"))
         if len(doc) not in (11, 14):
             raise NfseErro("CNPJ ou CPF do cliente inválido.")
@@ -518,6 +554,7 @@ class Api:
         root, _ = nfse.montar_dps({**perfil, "serie": 1}, nota, 1, amb, quando)
         nfse.validar(nfse.assinar(root, cert))
 
+        etapa(1)
         for _ in range(20):
             serie, numero = dados.serie_e_numero(perfil, amb)
             root, ident = nfse.montar_dps({**perfil, "serie": serie}, nota, numero, amb, quando)
@@ -527,6 +564,7 @@ class Api:
             raise NfseErro("Não há número livre na série deste computador. Fale com o suporte.")
         xml = nfse.assinar(root, cert)
 
+        etapa(2)
         try:
             chave, xml_nfse = receita.emitir(xml)
         except SemResposta:
@@ -536,6 +574,7 @@ class Api:
                 raise SemResposta("Sem confirmação da Receita. A nota ficou no Histórico como “A confirmar”: "
                                   "confira por lá antes de enviar de novo.")
             xml_nfse = receita.baixar_xml(chave)
+        etapa(3)
         return self._concluir(perfil, receita, nota, unidade, chave, xml_nfse, amb, quando)
 
     def _registrar_pendente(self, perfil, nota, unidade, ident, amb):
