@@ -633,7 +633,29 @@ class Api:
             dados.atualizar_historico(perfil, chave, pdf=item["pdf"], xml=item["xml"])
         except Exception:
             log.exception("arquivos da nota %s", chave)
+        if not item["pdf"]:
+            self._pdf_depois(perfil, receita, item)
         return item
+
+    def _pdf_depois(self, perfil, receita, item):
+        """A Receita às vezes leva alguns minutos para liberar o PDF: tenta de novo em segundo plano."""
+        def tentar():
+            import time
+            for espera in (30, 90, 240, 600):
+                time.sleep(espera)
+                try:
+                    conteudo = receita.danfse(item["chave"])
+                except Exception:
+                    conteudo = None
+                if conteudo:
+                    quando = datetime.strptime(item["data"], "%d/%m/%Y %H:%M")
+                    p = dados.pasta_notas(perfil, item["ambiente"], quando) / (dados.nome_arquivo(item["numero"], item["unidade"] or item["nome"]) + ".pdf")
+                    p.write_bytes(conteudo)
+                    dados.atualizar_historico(perfil, item["chave"], pdf=str(p))
+                    self._evento("pdf", {"chave": item["chave"], "pdf": str(p), "estado": self.estado()})
+                    return
+            log.info("PDF da nota %s ainda indisponível após as tentativas automáticas", item["chave"])
+        threading.Thread(target=tentar, daemon=True).start()
 
     def confirmar_pendente(self, ident, senha=None):
         """Para notas 'A confirmar': pergunta à Receita se a DPS virou nota."""
@@ -671,7 +693,8 @@ class Api:
             item = self._item(perfil, chave)
             conteudo = self._receita(perfil, self._cert(perfil, senha), item["ambiente"]).danfse(chave)
             if not conteudo:
-                raise NfseErro("O PDF ainda não está disponível na Receita. Tente em alguns minutos.")
+                raise NfseErro("A Receita ainda não liberou o PDF desta nota. O Notara tenta de novo sozinho; "
+                               "enquanto isso, a nota pode ser vista em Notas Emitidas no site do Emissor Nacional.")
             quando = datetime.strptime(item["data"], "%d/%m/%Y %H:%M")
             p = dados.pasta_notas(perfil, item["ambiente"], quando) / (dados.nome_arquivo(item["numero"], item["unidade"] or item["nome"]) + ".pdf")
             p.write_bytes(conteudo)
@@ -720,6 +743,12 @@ class Api:
             return {"ok": False}
         alvo = item.get(tipo) if tipo != "pasta" else str(Path(item.get("pdf") or item.get("xml") or "").parent)
         return self._abrir(alvo)
+
+    def consultar_no_site(self):
+        """Abre a consulta pública oficial da NFS-e (endereço fixo)."""
+        import webbrowser
+        webbrowser.open("https://www.nfse.gov.br/ConsultaPublica")
+        return {"ok": True}
 
     def abrir_pasta_notas(self):
         p = dados.empresa()

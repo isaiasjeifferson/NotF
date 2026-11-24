@@ -35,6 +35,13 @@ URLS_PADRAO = {
     "teste": {"sefin": "https://sefin.producaorestrita.nfse.gov.br/SefinNacional",
               "adn": "https://adn.producaorestrita.nfse.gov.br"},
 }
+# Portal do Emissor Nacional: plano B para o PDF (login pelo certificado + download)
+PORTAL = {
+    "producao": ("https://certificado.nfse.gov.br/EmissorNacional/Certificado",
+                 "https://www.nfse.gov.br/EmissorNacional/Notas/Download/DANFSe/{chave}"),
+    "teste": ("https://certificado.producaorestrita.nfse.gov.br/EmissorNacional/Certificado",
+              "https://www.producaorestrita.nfse.gov.br/EmissorNacional/Notas/Download/DANFSe/{chave}"),
+}
 SCHEMAS = Path(__file__).parent / "schemas"
 HOSTS_RECEITA = {"sefin.nfse.gov.br", "adn.nfse.gov.br",
                  "sefin.producaorestrita.nfse.gov.br", "adn.producaorestrita.nfse.gov.br"}
@@ -455,8 +462,27 @@ class Receita:
             return b""
 
     def danfse(self, chave):
-        r = self._req("GET", f"{self.urls['adn']}/danfse/{chave}")
-        return r.content if r.status_code == 200 and r.content[:4] == b"%PDF" else None
+        """PDF oficial da nota. 1º: serviço de PDF da Receita (ADN). 2º: portal do Emissor Nacional."""
+        log = logging.getLogger("notara")
+        try:
+            r = self._req("GET", f"{self.urls['adn']}/danfse/{chave}")
+            log.info("PDF pelo ADN: HTTP %s %s %d bytes", r.status_code, r.headers.get("Content-Type", ""), len(r.content))
+            if r.status_code == 200 and r.content[:4] == b"%PDF":
+                return r.content
+        except NfseErro as e:
+            log.info("PDF pelo ADN falhou: %s", e)
+        ambiente = "teste" if "producaorestrita" in self.urls["sefin"] else "producao"
+        login, download = PORTAL[ambiente]
+        try:
+            r = self.sessao.get(login, timeout=self.timeout, allow_redirects=True)
+            log.info("Portal (login por certificado): HTTP %s em %s", r.status_code, r.url.split("?")[0])
+            r = self.sessao.get(download.format(chave=chave), timeout=self.timeout, allow_redirects=True)
+            log.info("PDF pelo portal: HTTP %s %s %d bytes", r.status_code, r.headers.get("Content-Type", ""), len(r.content))
+            if r.status_code == 200 and r.content[:4] == b"%PDF":
+                return r.content
+        except requests.exceptions.RequestException as e:
+            log.info("PDF pelo portal falhou: %s", e)
+        return None
 
     def cancelar(self, chave, xml: bytes):
         r = self._req("POST", f"{self.urls['sefin']}/nfse/{chave}/eventos",

@@ -618,7 +618,7 @@ const app={
     if(st?.status==='erro'){ esq=`<div class="st erro">${ICON.erro}</div>`; extra=`<div class="err">${esc(st.msg)}</div>`; }
     if(st?.status==='incerto'){ esq=`<div class="st incerto">${ICON.erro}</div>`; extra=`<div class="err warn">${esc(st.msg)}</div>`; }
     if(st?.status==='ok'){ esq=`<div class="st ok">${ICON.ok}</div>`;
-      dir+=st.item.pdf?`<button class="link" data-a="abrirNota" data-k="${esc(st.item.chave)}" data-tipo="pdf">Nº ${esc(st.item.numero)} · PDF</button>`:`<span class="s">Nº ${esc(st.item.numero)}</span>`;
+      dir+=st.item.pdf?`<button class="link" data-a="abrirNota" data-k="${esc(st.item.chave)}" data-tipo="pdf">Nº ${esc(st.item.numero)} · PDF</button>`:`<span class="s" title="A Receita ainda não liberou o PDF. O Notara busca sozinho.">Nº ${esc(st.item.numero)} · PDF em preparo</span>`;
       if(st.item.aviso) extra=`<div class="err warn">${esc(st.item.aviso)}</div>`; }
     if(this.fase==='pronto'&&!st) esq='<span class="badge" title="Não selecionada neste envio">Depois</span>';
     const acoes=edit?`<button class="acao" data-a="editar" data-i="${i}" title="Editar" aria-label="Editar nota de ${rot}">${ICON.lapis}</button>
@@ -716,6 +716,8 @@ const app={
   },
   evento(nome,d){
     if(nome==='progresso'){ this.verificando=false; if(d.status==='enviando') d.inicio=Date.now(); this.st[this.fila[d.i]]=d; this.render(); }
+    if(nome==='pdf'){ if(d.estado) this.s=d.estado; this.st.forEach(s=>{ if(s?.item?.chave===d.chave) s.item.pdf=d.pdf; });
+      this.render(); this.renderHistorico(); this.toast('PDF da nota disponível'); }
     if(nome==='verificando'){ this.verificando=true; this.render(); }
     if(nome==='etapa'){ const s=this.st[this.fila[d.i]]; if(s){ s.etapa=d.etapa; this.render(); } }
     if(nome==='fim'){ this.fase='pronto'; this.verificando=false; this.bloqueio=d.bloqueio||null; if(d.estado) this.s=d.estado; this.avisos();
@@ -802,6 +804,7 @@ const app={
       x.xml&&['Abrir XML',()=>api().abrir_nota(x.chave,'xml')],
       (x.pdf||x.xml)&&['Mostrar na pasta',()=>api().abrir_nota(x.chave,'pasta')],
       ['Copiar chave de acesso',()=>{navigator.clipboard.writeText(x.chave);this.toast('Chave copiada')}],
+      ['Consultar no site da Receita',()=>{navigator.clipboard.writeText(x.chave);api().consultar_no_site();this.toast('Chave copiada. Cole no campo da consulta.')}],
       x.situacao==='emitida'&&'-',
       x.situacao==='emitida'&&['Cancelar nota…',()=>this.cancelar(x),'red'],
     ]);
