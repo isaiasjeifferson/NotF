@@ -429,7 +429,7 @@ const app={
     ];
     $('#passo').innerHTML=P[this.passo]();
     if(this.passo===0){ const s=$('#c-senha'); s.onkeydown=e=>{if(e.key==='Enter')this.lerCert()}; s.focus(); }
-    if(this.passo===1){ const upd=()=>{const v=segVal('e-reg');$('#fe-aliq').hidden=$('#e-aliq-h').hidden=v!=='3'}; this.segs(upd); upd(); $('#e-nome').focus(); }
+    if(this.passo===1){ const upd=()=>{const v=segVal('e-reg');$('#fe-aliq').hidden=$('#e-aliq-h').hidden=v!=='3'}; this.segs(upd,['e-reg']); upd(); $('#e-nome').focus(); }
     if(this.passo===2){ this.previa('s-modelo'); $('#s-nac').focus(); }
     if(this.passo===3&&!c.salvo) this.salvarCadastro();
   },
@@ -737,11 +737,34 @@ const app={
     };
     const nomes={empresa:'Empresa',notas:'Notas',geral:'Geral'};
     this.folha('Ajustes','',`<div class="tabs"><div class="seg" role="tablist" id="a-tabs">${Object.entries(nomes).map(([k,v])=>`<button role="tab" data-v="${k}" aria-selected="false">${v}</button>`).join('')}</div></div>
-      ${Object.entries(panes).map(([k,h])=>`<div class="a-pane" role="tabpanel" data-v="${k}">${h}</div>`).join('')}`,'Salvar',()=>this.salvarAjustes());
+      ${Object.entries(panes).map(([k,h])=>`<div class="a-pane" role="tabpanel" data-v="${k}">${h}</div>`).join('')}`,'Concluído',()=>this.fechar(),{soOk:true});
     this.irAba(aba); this.aplicarTema(this.tema);
     $$('#a-tabs button').forEach(b=>b.onclick=()=>this.irAba(b.dataset.v));
-    this.segs(()=>{ if(segVal('a-amb')==='producao'&&e.ambiente!=='producao') this.ligarProducaoAgora(); });
+    this.segs(v=>{ if(v==='producao'&&this.s.empresa.ambiente!=='producao') this.ligarProducaoAgora();
+      else if(v==='teste'&&this.s.empresa.ambiente!=='teste') this.salvarCampo({ambiente:'teste'},'a-amb'); },['a-amb']);
     this.previa('a-modelo');
+    const srv=()=>({servico:{cod_nacional:$('#a-nac').value.trim(),cod_municipal:$('#a-cmun').value.trim(),nbs:$('#a-nbs').value.trim(),iss_retido:swOn('a-ret')}});
+    const urls=()=>{ const u={}; ['producao','teste'].forEach(a=>u[a]={sefin:$(`#u-${a}-sefin`).value.trim(),adn:$(`#u-${a}-adn`).value.trim()}); return {urls:u}; };
+    const campos={
+      'a-nome':()=>({nome:$('#a-nome').value.trim()}), 'a-apelido':()=>({apelido:$('#a-apelido').value.trim()}),
+      'a-mun':()=>({municipio:$('#a-mun').value.trim()}), 'a-ibge':()=>({municipio_ibge:dig($('#a-ibge').value)}),
+      'a-reg':()=>({op_simples:+$('#a-reg').value}), 'a-aliq':()=>({aliquota_simples:parseValor($('#a-aliq').value)}),
+      'a-guardar':()=>({pedir_senha:!swOn('a-guardar')}),
+      'a-nac':srv,'a-cmun':srv,'a-nbs':srv,'a-ret':srv, 'a-modelo':()=>({descricao_modelo:$('#a-modelo').value.trim()}),
+      'u-producao-sefin':urls,'u-producao-adn':urls,'u-teste-sefin':urls,'u-teste-adn':urls,
+    };
+    for(const [id,fn] of Object.entries(campos)) $('#'+id).addEventListener('change',()=>this.salvarCampo(fn(),id));
+  },
+  async salvarCampo(parcial,id,senha){
+    const st=$('#sheet-status'); if(st) st.textContent='Salvando…';
+    const r=await api().salvar_empresa({cnpj:this.s.empresa.cnpj,...parcial},false,senha||null);
+    if(!r.ok){
+      if(r.erro==='SENHA') return this.pedirSenha(s=>this.salvarCampo(parcial,id,s),'Senha para guardar',()=>{ const sw=$('#a-guardar'); if(sw) sw.setAttribute('aria-checked','false'); if(st) st.textContent=''; });
+      if(st) st.textContent='';
+      const campo=$('#'+id)?.closest('.field'); return campo&&campo.id?this.invalido(campo.id,r.erro):this.toast(r.erro);
+    }
+    this.s=r.estado; this.cabecalho(); this.avisos(); this.renderHistorico();
+    if(st){ st.textContent='Salvo'; clearTimeout(this._salvo); this._salvo=setTimeout(()=>{ if($('#sheet-status')) $('#sheet-status').textContent=''; },1800); }
   },
   irAba(v){ $$('#a-tabs button').forEach(b=>b.setAttribute('aria-selected',b.dataset.v===v)); $$('.a-pane').forEach(p=>p.hidden=p.dataset.v!==v); },
   ligarProducao(){ this.ligarProducaoAgora(); },
@@ -749,38 +772,19 @@ const app={
     this.confirmar('Ligar a produção?','A partir de agora as notas terão validade fiscal. As notas de teste continuam na pasta Testes.','Ligar',false,async()=>{
       const r=await api().salvar_empresa({cnpj:this.s.empresa.cnpj,ambiente:'producao'},false,null);
       if(!r.ok) return this.toast(r.erro);
-      this.s=r.estado; this.cabecalho(); this.avisos(); this.fechar(); this.toast('Produção ligada');
+      this.s=r.estado; this.cabecalho(); this.avisos(); this.toast('Produção ligada');
     },()=>{ const b=$('#a-amb [data-v=teste]'); if(b) $$('#a-amb button').forEach(x=>x.setAttribute('aria-checked',x===b)); });
   },
-  async salvarAjustes(){
-    const e=this.s.empresa;
-    const urls={}; ['producao','teste'].forEach(a=>urls[a]={sefin:$(`#u-${a}-sefin`).value.trim(),adn:$(`#u-${a}-adn`).value.trim()});
-    const p={cnpj:e.cnpj,nome:$('#a-nome').value.trim(),apelido:$('#a-apelido').value.trim(),municipio:$('#a-mun').value.trim(),municipio_ibge:dig($('#a-ibge').value),
-      op_simples:+$('#a-reg').value,aliquota_simples:parseValor($('#a-aliq').value),pedir_senha:!swOn('a-guardar'),
-      servico:{cod_nacional:$('#a-nac').value.trim(),cod_municipal:$('#a-cmun').value.trim(),nbs:$('#a-nbs').value.trim(),iss_retido:swOn('a-ret')},
-      descricao_modelo:$('#a-modelo').value.trim(),urls,pasta_notas:$('#a-pnotas').dataset.valor,pasta_compartilhada:$('#a-pcomp').dataset.valor};
-    const checa=[['fa-nome','empresa',!p.nome,'Informe a razão social.'],['fa-ibge','empresa',p.municipio_ibge.length!==7,'O código do município tem 7 números.'],
-      ['fa-aliq','empresa',p.op_simples===3&&!(p.aliquota_simples>0&&p.aliquota_simples<100),'Informe a alíquota do Simples.'],
-      ['fa-nac','notas',dig(p.servico.cod_nacional).length!==6,'O código do serviço tem 6 números.'],
-      ['fa-cmun','notas',p.servico.cod_municipal&&dig(p.servico.cod_municipal).length!==3,'O código municipal tem 3 números.'],
-      ['fa-nbs','notas',p.servico.nbs&&dig(p.servico.nbs).length!==9,'O código NBS tem 9 números.'],['fa-modelo','notas',!p.descricao_modelo,'Informe o modelo da descrição.']];
-    for(const [id,aba,falhou,msg] of checa) if(falhou){ this.irAba(aba); return this.invalido(id,msg); }
-    const precisaSenha=e.pedir_senha&&!p.pedir_senha;
-    const salvar=async senha=>{
-      const r=await api().salvar_empresa(p,false,senha||null);
-      if(!r.ok){ if(r.erro==='SENHA') return this.pedirSenha(salvar,'Senha para guardar'); return this.toast(r.erro); }
-      this.s=r.estado; this.fechar(); this.cabecalho(); this.avisos(); this.renderHistorico(); this.toast('Ajustes salvos');
-    };
-    precisaSenha?this.pedirSenha(salvar,'Senha para guardar'):salvar(null);
-  },
   restaurarUrls(){ const d={producao:{sefin:'https://sefin.nfse.gov.br/SefinNacional',adn:'https://adn.nfse.gov.br'},teste:{sefin:'https://sefin.producaorestrita.nfse.gov.br/SefinNacional',adn:'https://adn.producaorestrita.nfse.gov.br'}};
-    for(const a in d) for(const k in d[a]) $(`#u-${a}-${k}`).value=d[a][k]; },
+    for(const a in d) for(const k in d[a]) $(`#u-${a}-${k}`).value=d[a][k];
+    this.salvarCampo({urls:d},'u-producao-sefin'); },
   abrirLog(){ api().abrir_log(); },
   async testar(){ const v=$('#a-con'); v.innerHTML='<span class="spin" style="display:inline-block;vertical-align:middle"></span>';
     const r=await this.comSenha(s=>api().testar_conexao(s)); if(!$('#a-con')) return;
     $('#a-con').innerHTML=r?.ok?'<span style="color:var(--green)">Conectado</span>':`<span style="color:var(--red)">${esc(r?.erro||'Não testado')}</span>`; },
-  async pasta(_,el){ const p=await api().escolher_pasta(); if(p){ const v=$('#'+el.dataset.alvo); v.dataset.valor=p; v.textContent=p; } },
-  desligarComp(){ const v=$('#a-pcomp'); v.dataset.valor=''; v.textContent='Não usar'; },
+  async pasta(_,el){ const p=await api().escolher_pasta(); if(!p) return; const v=$('#'+el.dataset.alvo); v.dataset.valor=p; v.textContent=p;
+    await this.salvarCampo(el.dataset.alvo==='a-pnotas'?{pasta_notas:p}:{pasta_compartilhada:p},el.dataset.alvo); if(el.dataset.alvo==='a-pcomp') this.ajustes('geral'); },
+  async desligarComp(){ await this.salvarCampo({pasta_compartilhada:''},'a-pcomp'); this.ajustes('geral'); },
   async trocarCert(){
     const f=await lerArquivo('.pfx,.p12'); if(!f) return;
     this.pedirSenha(async s=>{ const r=await api().trocar_certificado(f.b64,s); if(!r.ok) return this.toast(r.erro);
@@ -845,7 +849,7 @@ const app={
     el.textContent=ver?'Ocultar':'Mostrar'; el.setAttribute('aria-label',ver?'Ocultar senha':'Mostrar senha'); i.focus(); },
 
   /* ================= Componentes ================= */
-  segs(cb){ $$('[role=radiogroup] button').forEach(b=>b.onclick=()=>{ $$(`#${b.parentNode.id} button`).forEach(x=>x.setAttribute('aria-checked',x===b)); cb&&cb(); }); },
+  segs(cb,ids){ (ids||[]).forEach(id=>$$(`#${id} button`).forEach(b=>b.onclick=()=>{ if(b.disabled) return; $$(`#${id} button`).forEach(x=>x.setAttribute('aria-checked',x===b)); cb&&cb(b.dataset.v,id); })); },
   previa(id){ const i=$('#'+id), p=$('#'+id+'-prev'), f=()=>p.innerHTML='Exemplo: <b>'+esc(aplicarModelo(i.value,'Unidade Centro'))+'</b>'; i.oninput=f; f(); },
   inserir(_,el){ const i=$('#'+el.dataset.alvo), pos=i.selectionStart??i.value.length; i.value=i.value.slice(0,pos)+el.dataset.t+i.value.slice(i.selectionEnd??pos); i.focus(); i.dispatchEvent(new Event('input')); },
   invalido(id,msg){
@@ -871,10 +875,10 @@ const app={
     this.folha2(titulo,texto,'',ok,()=>{ this.fechar2(); acao(); },{destrutivo,onCancel});
     $('#sheet2-ok').focus();
   },
-  _montar(sel,id,titulo,sub,corpo,ok,acao,{cancelar='Cancelar',destrutivo=false,onCancel}={}){
+  _montar(sel,id,titulo,sub,corpo,ok,acao,{cancelar='Cancelar',destrutivo=false,onCancel,soOk=false}={}){
     const el=$(sel); this[`_volta_${id}`]=document.activeElement; this[`_cancel_${id}`]=onCancel;
     el.innerHTML=`<div class="sh"><h3 id="${id}-t">${esc(titulo)}</h3>${sub?`<p>${esc(sub)}</p>`:''}</div>${corpo?`<div class="sb">${corpo}</div>`:''}
-      <div class="sf"><button class="btn" id="${id}-c">${esc(cancelar)}</button><button class="btn ${destrutivo?'red':'primary'}" id="${id}-ok">${esc(ok)}</button></div>`;
+      <div class="sf"><span class="s spacer" id="${id}-status" role="status" style="align-self:center"></span><button class="btn" id="${id}-c" ${soOk?'hidden':''}>${esc(cancelar)}</button><button class="btn ${destrutivo?'red':'primary'}" id="${id}-ok">${esc(ok)}</button></div>`;
     el.parentNode.classList.add('on');
     $(`#${id}-ok`).onclick=acao; $(`#${id}-c`).onclick=()=>id==='sheet'?this.fechar(true):this.fechar2(true);
     el.onkeydown=e=>{
@@ -918,7 +922,8 @@ document.addEventListener('click',e=>{
   if(el.getAttribute('role')==='switch') return;
   fn.call(app,e,el);
 });
-document.addEventListener('click',e=>{ const s=e.target.closest('[role=switch]'); if(s) s.setAttribute('aria-checked',s.getAttribute('aria-checked')!=='true'); });
+document.addEventListener('click',e=>{ const s=e.target.closest('[role=switch]'); if(!s) return;
+  s.setAttribute('aria-checked',s.getAttribute('aria-checked')!=='true'); s.dispatchEvent(new Event('change',{bubbles:true})); });
 $$('#abas button').forEach(b=>b.onclick=()=>app.aba(b.dataset.v));
 $('#busca').oninput=()=>app.renderHistorico();
 $('#q-cli').oninput=()=>app.buscarCli();

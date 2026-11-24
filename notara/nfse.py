@@ -341,7 +341,7 @@ class Receita:
     def testar(self, cmun):
         r = self._req("GET", f"{self.urls['sefin']}/parametros_municipais/{cmun}/convenio")
         if r.status_code in (401, 403, 495, 496):
-            raise NfseErro("A Receita recusou o certificado.")
+            raise NfseErro(f"A Receita recusou a conexão (código {r.status_code}). Faça uma nota de teste para ver o motivo.")
         if r.status_code >= 500:
             raise NfseErro("O sistema da Receita está fora do ar no momento.")
         return {"municipio_ativo": r.status_code == 200}
