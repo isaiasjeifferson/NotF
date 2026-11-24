@@ -272,16 +272,20 @@ def test_bloqueio_para_o_lote_sem_tentar_as_notas(ambiente):
     assert not api._envio.locked()
 
 
-def test_assinatura_confere_em_verificador_independente(ambiente):
-    """Regressão do erro E0714: a assinatura precisa validar fora do lxml/libxml2 usado para gerar."""
-    from signxml import DigestAlgorithm, SignatureConfiguration, SignatureMethod, XMLVerifier
+def test_assinatura_confere_em_verificador_independente(ambiente, tmp_path):
+    """Regressão do erro E0714: a assinatura precisa validar na implementação XMLDSig do Java,
+    que não tem nada em comum com o lxml/libxml2 usado para gerar."""
+    import shutil
+    import subprocess
+    if not shutil.which("java") or not shutil.which("javac"):
+        pytest.skip("Java não disponível")
     n = ambiente.nfse
     cert = n.Certificado(pfx(), "1234")
-    pem = cert.cert.public_bytes(serialization.Encoding.PEM).decode()
-    cfg = SignatureConfiguration(signature_methods=frozenset({SignatureMethod.RSA_SHA1}),
-                                 digest_algorithms=frozenset({DigestAlgorithm.SHA1}), require_x509=False)
+    subprocess.run(["javac", "-d", str(tmp_path), str(AQUI / "Verifica.java")], check=True, capture_output=True)
     dps = n.assinar(n.montar_dps(PERFIL, {**NOTA, "descricao": "Serviço de lavanderia - Novembro de 2026 - Unidade"}, 3, "producao")[0], cert)
     canc = n.assinar(n.montar_cancelamento("3" * 50, PERFIL["cnpj"], "producao", 1, "Valor digitado errado na nota"), cert)
-    for xml in (dps, canc):
+    for nome, xml in (("dps.xml", dps), ("canc.xml", canc)):
         assert b'xmlns=""' not in xml
-        XMLVerifier().verify(xml, x509_cert=pem, expect_config=cfg)
+        (tmp_path / nome).write_bytes(xml)
+        r = subprocess.run(["java", "-cp", str(tmp_path), "Verifica", str(tmp_path / nome)], capture_output=True, text=True)
+        assert "=> VALIDA" in r.stdout, r.stdout + r.stderr
