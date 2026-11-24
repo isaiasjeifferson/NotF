@@ -408,6 +408,26 @@ class Api:
             dados.remover_cliente(p, digitos(doc), unidade)
         return {"ok": True}
 
+    def rascunho(self):
+        """Lista em espera desta empresa neste computador (sobrevive ao fechar o programa)."""
+        p = dados.empresa()
+        return dados.rascunho(p) if p else []
+
+    def salvar_rascunho(self, notas):
+        p = dados.empresa()
+        if not p or not isinstance(notas, list):
+            return {"ok": False}
+        limpas = []
+        for n in notas[:2000]:
+            if isinstance(n, dict):
+                limpas.append({k: n.get(k) for k in ("cnpj", "nome", "unidade", "descricao", "valor", "sel")})
+        try:
+            dados.salvar_rascunho(p, limpas)
+        except Exception:
+            log.exception("salvar lista")
+            return {"ok": False}
+        return {"ok": True}
+
     def descricao(self, unidade):
         p = dados.empresa()
         return dados.descricao(p, str(unidade or "")) if p else ""
@@ -669,6 +689,8 @@ class Api:
     def verificar_atualizacao(self):
         try:
             r = requests.get(f"https://api.github.com/repos/{REPO}/releases/latest", timeout=6)
+            if r.status_code == 404:
+                return {"erro": "Página de atualizações indisponível. Baixe a versão nova com quem distribui o Notara."}
             if not r.ok:
                 return None
             d = r.json()

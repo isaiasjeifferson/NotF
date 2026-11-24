@@ -77,6 +77,11 @@ main{flex:1;overflow:auto;padding:0 32px 24px}
 @keyframes r{to{transform:rotate(360deg)}}
 .link{color:var(--blue);font-weight:500;font-size:13px;padding:4px 8px;border-radius:6px;white-space:nowrap}
 .link:hover{background:var(--fill2)}
+.acao{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;color:var(--label2);flex:none}
+.acao:hover{background:var(--fill);color:var(--blue)} .acao.red:hover{color:var(--red)}
+.check-n{width:22px;height:22px;border-radius:50%;border:1.5px solid var(--label3);display:grid;place-items:center;color:#fff;flex:none}
+.check-n[aria-checked=true]{background:var(--blue);border-color:var(--blue)}
+.row.apagada .t,.row.apagada .s{color:var(--label3)}
 .more{width:30px;height:28px;border-radius:7px;color:var(--label2);display:grid;place-items:center;flex:none}
 .more:hover{background:var(--fill)}
 
@@ -288,6 +293,8 @@ const ICON={
   x:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>',
   seta:'<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>',
   mais:'<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>',
+  lapis:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 1 1 3 3L7 19l-4 1 1-4z"/></svg>',
+  lixo:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14M10 11v6M14 11v6"/></svg>',
   check:'<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg>'};
 const sw=(id,on,label)=>`<button class="switch" id="${id}" role="switch" aria-checked="${!!on}" aria-labelledby="${id}-l"></button>`;
 const swOn=id=>$('#'+id).getAttribute('aria-checked')==='true';
@@ -304,7 +311,7 @@ const app={
     this.pronto();
     const up=await api().verificar_atualizacao(); if(up?.versao){ this.update=up; this.avisos(); }
   },
-  pronto(){ $('#setup').hidden=true; this.cabecalho(); this.avisos(); this.render(); this.renderHistorico(); this.carregarClientes(); },
+  pronto(){ $('#setup').hidden=true; this.cabecalho(); this.avisos(); this.render(); this.renderHistorico(); this.carregarClientes(); this.carregarLista(); },
   async carregarClientes(){ this.clis=await api().clientes_salvos(); $('#busca-cli').hidden=!this.clis.length; },
 
   /* ================= Clientes salvos ================= */
@@ -494,16 +501,21 @@ const app={
   concluir(){ this.cad={}; this.pronto(); },
 
   /* ================= Lista ================= */
+  sel(x){ return x.sel!==false; },
   render(){
     const n=this.notas;
     $('#vazio').hidden=n.length>0; this.rodape();
+    if(this.fase==='lista') this.guardarLista();
     if(!n.length){ $('#lista').innerHTML=''; return; }
     const grupos=new Map(); n.forEach((x,i)=>{ if(!grupos.has(x.cnpj)) grupos.set(x.cnpj,[]); grupos.get(x.cnpj).push(i); });
-    $('#lista').innerHTML=[...grupos].map(([doc,idx])=>`
+    const lista=this.fase==='lista';
+    $('#lista').innerHTML=(lista?`<div class="gt" style="margin-top:4px"><span>${n.every(x=>this.sel(x))?'Todas selecionadas':`${n.filter(x=>this.sel(x)).length} de ${n.length} selecionadas · as outras ficam guardadas para depois`}</span>
+        <button class="link" data-a="marcarTodas">${n.every(x=>this.sel(x))?'Desmarcar todas':'Marcar todas'}</button></div>`:'')
+      +[...grupos].map(([doc,idx])=>`
       <div class="gt"><span>${esc(n[idx[0]].nome||'Buscando nome do cliente…')}</span><span class="num">${fmtDoc(doc)}</span></div>
       <div class="group">${idx.map(i=>this.linha(i)).join('')}</div>`).join('')
       +(this.ignoradas.length?`<p class="hint" style="margin-top:12px">Ignoradas (marcadas no arquivo): ${esc(this.ignoradas.join(', '))}.</p>`:'');
-    const tot=n.reduce((a,x)=>a+x.valor,0), ok=this.st.filter(s=>s?.status==='ok').length,
+    const marcadas=n.filter(x=>this.sel(x)), tot=marcadas.reduce((a,x)=>a+x.valor,0), ok=this.st.filter(s=>s?.status==='ok').length,
       falhas=this.st.filter(s=>s?.status==='erro').length, feitos=this.st.filter(s=>s&&!['aguardando','enviando'].includes(s.status)).length;
     const prim=$('#b-pri'), sec=$('#b-sec'), barra=$('#barra');
     barra.hidden=this.fase!=='enviando';
@@ -511,54 +523,62 @@ const app={
       $('#qtd').textContent=`Emitindo ${Math.min(feitos+1,this.fila.length)} de ${this.fila.length}…`; barra.firstChild.style.width=(feitos/this.fila.length*100)+'%';
       prim.textContent='Emitindo…'; prim.disabled=true; sec.hidden=true;
     } else if(this.fase==='pronto'){
+      const resto=n.length-ok;
       $('#qtd').textContent=`${plural(ok,'emitida','emitidas')}${falhas?` · ${falhas} com erro`:''}`;
-      sec.hidden=false; sec.disabled=false; sec.textContent=falhas?'Abrir pasta':'Nova lista'; sec.dataset.a=falhas?'abrirPasta':'novaLista';
+      sec.hidden=false; sec.disabled=false; sec.textContent=resto?`Voltar à lista (${resto})`:'Nova lista'; sec.dataset.a='voltarLista';
       prim.disabled=false; prim.textContent=falhas?`Tentar ${falhas} de novo`:'Abrir pasta'; prim.dataset.a=falhas?'reenviar':'abrirPasta';
     } else {
-      $('#qtd').textContent=plural(n.length,'nota','notas');
+      $('#qtd').textContent=marcadas.length===n.length?plural(n.length,'nota','notas'):`${marcadas.length} de ${n.length} notas`;
       sec.hidden=false; sec.disabled=false; sec.textContent='Limpar'; sec.dataset.a='limpar';
-      prim.disabled=false; prim.textContent=`Emitir ${plural(n.length,'nota','notas')}`; prim.dataset.a='confirmarEmissao';
+      prim.disabled=!marcadas.length; prim.textContent=marcadas.length?`Emitir ${plural(marcadas.length,'nota','notas')}`:'Nenhuma selecionada'; prim.dataset.a='confirmarEmissao';
     }
-    $('#total').textContent=brl(tot);
+    $('#total').textContent=brl(this.fase==='lista'?tot:n.reduce((a,x)=>a+x.valor,0));
   },
   linha(i){
-    const x=this.notas[i], st=this.st[i], edit=this.fase==='lista'||(this.fase==='pronto'&&st?.status==='erro');
-    let esq='', dir=`<div class="v num">${brl(x.valor)}</div>`, extra='';
+    const x=this.notas[i], st=this.st[i], lista=this.fase==='lista', edit=lista||(this.fase==='pronto'&&st?.status==='erro');
+    const rot=esc(x.unidade||x.nome||fmtDoc(x.cnpj));
+    let esq='', dir=`<div class="v num" style="${lista&&!this.sel(x)?'color:var(--label3)':''}">${brl(x.valor)}</div>`, extra='';
+    if(lista) esq=`<button class="check-n" role="checkbox" aria-checked="${this.sel(x)}" data-a="alternarSel" data-i="${i}" aria-label="Emitir a nota de ${rot}">${this.sel(x)?ICON.check:''}</button>`;
     if(st?.status==='enviando') esq='<div class="spin" aria-label="Enviando"></div>';
-    if(st?.status==='erro'){ esq=`<div class="st erro">${ICON.erro}</div>`; extra=`<div class="err">${esc(st.msg)}<small>Clique para corrigir</small></div>`; }
+    if(st?.status==='erro'){ esq=`<div class="st erro">${ICON.erro}</div>`; extra=`<div class="err">${esc(st.msg)}</div>`; }
     if(st?.status==='incerto'){ esq=`<div class="st incerto">${ICON.erro}</div>`; extra=`<div class="err warn">${esc(st.msg)}</div>`; }
     if(st?.status==='ok'){ esq=`<div class="st ok">${ICON.ok}</div>`;
       dir+=st.item.pdf?`<button class="link" data-a="abrirNota" data-k="${esc(st.item.chave)}" data-tipo="pdf">Nº ${esc(st.item.numero)} · PDF</button>`:`<span class="s">Nº ${esc(st.item.numero)}</span>`;
       if(st.item.aviso) extra=`<div class="err warn">${esc(st.item.aviso)}</div>`; }
-    const tag=edit?'button':'div';
-    return `<div style="position:relative;display:flex;align-items:center" class="row-wrap">
-      <${tag} class="row ${edit?'click':''}" ${edit?`data-a="editar" data-i="${i}" aria-label="Editar nota de ${esc(x.unidade||x.nome)}"`:''}>${esq}
-        <div class="main"><div class="t">${esc(x.unidade||x.nome||fmtDoc(x.cnpj))}</div><div class="s">${esc(x.descricao)}</div>${extra}</div>${dir}
-        ${this.fase==='lista'?'<span style="width:28px"></span>':''}</${tag}>
-      ${this.fase==='lista'?`<button class="del" style="position:absolute;right:12px" data-a="remover" data-i="${i}" title="Remover" aria-label="Remover nota de ${esc(x.unidade||x.nome)}">${ICON.x}</button>`:''}</div>`;
+    if(this.fase==='pronto'&&!st) esq='<span class="badge" title="Não selecionada neste envio">Depois</span>';
+    const acoes=edit?`<button class="acao" data-a="editar" data-i="${i}" title="Editar" aria-label="Editar nota de ${rot}">${ICON.lapis}</button>
+      <button class="acao red" data-a="excluir" data-i="${i}" title="Excluir" aria-label="Excluir nota de ${rot}">${ICON.lixo}</button>`:'';
+    return `<div class="row ${lista&&!this.sel(x)?'apagada':''}">${esq}
+        <div class="main"><div class="t">${rot}</div><div class="s">${esc(x.descricao)}</div>${extra}</div>${dir}${acoes}</div>`;
   },
+  alternarSel(_,el){ const x=this.notas[+el.dataset.i]; x.sel=!this.sel(x); this.render(); },
+  marcarTodas(){ const todas=this.notas.every(x=>this.sel(x)); this.notas.forEach(x=>x.sel=!todas); this.render(); },
+  guardarLista(){ clearTimeout(this._gl); this._gl=setTimeout(()=>api().salvar_rascunho(this.notas),400); },
+  async carregarLista(){ if(this.notas.length) return; const l=await api().rascunho(); if(l?.length){ this.notas=l; this.render(); this.toast(plural(l.length,'nota guardada recuperada','notas guardadas recuperadas')); } },
   adicionar(r){
     if(!r) return; if(!r.ok) return this.toast(r.erro);
     if(!r.notas.length) return this.toast('Nenhuma nota encontrada nesse conteúdo.');
-    const go=()=>{ if(this.fase!=='lista') this.reset();
-      this.notas.push(...r.notas); this.ignoradas=r.ignoradas||[];
-      this.aba('emitir'); this.render(); this.completarNomes();
-      this.toast(plural(r.notas.length,'nota adicionada','notas adicionadas')); };
-    go();
+    if(this.fase!=='lista') this.voltarLista();
+    this.notas.push(...r.notas.map(x=>({...x,sel:true}))); this.ignoradas=r.ignoradas||[];
+    this.aba('emitir'); this.render(); this.completarNomes();
+    this.toast(plural(r.notas.length,'nota adicionada','notas adicionadas'));
   },
   async completarNomes(){
     for(const c of new Set(this.notas.filter(n=>!n.nome).map(n=>n.cnpj))){
       const nome=await api().buscar_nome(c); this.notas.forEach(n=>{ if(n.cnpj===c&&!n.nome) n.nome=nome||''; }); this.render();
     }
   },
-  remover(i){
-    i=+i; const [n]=this.notas.splice(i,1), [s]=this.st.splice(i,1); this.render();
-    this.toast('Nota removida',{acao:'Desfazer',fn:()=>{ this.notas.splice(i,0,n); this.st.splice(i,0,s); this.render(); }});
+  excluir(_,el){
+    const i=+(el?.dataset?.i??el), [n]=this.notas.splice(i,1), [s]=this.st.splice(i,1); this.fechar(); this.render();
+    this.toast('Nota excluída',{acao:'Desfazer',fn:()=>{ this.notas.splice(i,0,n); this.st.splice(i,0,s); this.render(); }});
   },
   limpar(){
-    this.confirmar('Limpar a lista?',`${plural(this.notas.length,'nota será removida','notas serão removidas')} da lista.`,'Limpar',true,()=>this.reset());
+    this.confirmar('Limpar a lista?',`${plural(this.notas.length,'nota será excluída','notas serão excluídas')} da lista, inclusive as guardadas para depois.`,'Limpar',true,()=>this.reset());
   },
-  novaLista(){ this.reset(); },
+  voltarLista(){
+    const resto=this.notas.filter((_,i)=>this.st[i]?.status!=='ok');
+    this.notas=resto; this.st=[]; this.fase='lista'; this.erroEnvio=null; this.avisos(); this.render();
+  },
   reset(){ this.notas=[]; this.st=[]; this.fase='lista'; this.ignoradas=[]; this.erroEnvio=null; this.avisos(); this.render(); },
   async escolherPdf(){ const f=await lerArquivo('.pdf'); if(f) this.adicionar(await api().importar_pdf(f.b64)); },
   abrirNota(_,el){ api().abrir_nota(el.dataset.k,el.dataset.tipo); },
@@ -573,20 +593,19 @@ const app={
         <div class="field" id="ff-nome"><label for="f-nome">Cliente</label><input id="f-nome" value="${esc(x.nome)}" placeholder="Preenchido pelo CNPJ"></div>
         <div class="field"><label for="f-uni">Unidade</label><input id="f-uni" value="${esc(x.unidade)}" placeholder="Opcional"></div>
         <div class="field" id="ff-val"><label for="f-val">Valor</label><input id="f-val" class="num" value="${x.valor?fmtNum(x.valor):''}" placeholder="R$ 0,00"></div>
-      </div>${pre&&x.valor?'<p class="hint">Preenchido com o último valor. Altere se mudou.</p>':''}<div class="group" style="display:none">
-      </div>
+      </div>${pre&&x.valor?'<p class="hint">Preenchido com o último valor. Altere se mudou.</p>':''}
       <div class="gt">Descrição</div>
       <div class="group"><div class="field" id="ff-desc"><textarea id="f-desc" aria-label="Descrição">${esc(x.descricao)}</textarea></div></div>`,
       novo?'Adicionar':'Salvar', async()=>{
-        const n={cnpj:dig($('#f-doc').value),nome:$('#f-nome').value.trim(),unidade:$('#f-uni').value.trim(),valor:parseValor($('#f-val').value),descricao:$('#f-desc').value.trim()};
+        const n={cnpj:dig($('#f-doc').value),nome:$('#f-nome').value.trim(),unidade:$('#f-uni').value.trim(),valor:parseValor($('#f-val').value),descricao:$('#f-desc').value.trim(),sel:novo?true:this.sel(x)};
         if(![11,14].includes(n.cnpj.length)) return this.invalido('ff-doc','Confira o CNPJ ou CPF.');
         if(!n.nome) return this.invalido('ff-nome','Informe o nome do cliente.');
         if(!(n.valor>0)) return this.invalido('ff-val','Informe o valor.');
         if(!n.descricao) n.descricao=await api().descricao(n.unidade);
         if(novo) this.notas.push(n); else { this.notas[i]=n; this.st[i]=null; }
         this.fechar(); this.render();
-      });
-    const doc=$('#f-doc'), uni=$('#f-uni'), desc=$('#f-desc'); let auto=novo||!x.descricao;
+      },{extra:novo?'':`<button class="btn" style="background:none;color:var(--red);margin-right:auto" data-a="excluir" data-i="${i}">Excluir nota</button>`});
+    const doc=$('#f-doc'), uni=$('#f-uni'), desc=$('#f-desc'); let auto=(novo&&!pre)||!x.descricao;
     desc.oninput=()=>auto=false;
     uni.oninput=async()=>{ if(auto) desc.value=await api().descricao(uni.value); };
     if(novo&&!pre) api().descricao('').then(d=>{ if(auto&&!desc.value) desc.value=d; });
@@ -596,18 +615,20 @@ const app={
   },
 
   /* ================= Emitir ================= */
+  selecionadas(){ return this.notas.map((x,i)=>this.sel(x)?i:-1).filter(i=>i>=0); },
   confirmarEmissao(){
-    const semNome=this.notas.findIndex(n=>!n.nome);
-    if(semNome>=0) return this.toast('Falta o nome do cliente em uma nota. Clique nela para completar.');
-    const e=this.s.empresa, prod=e.ambiente==='producao', n=this.notas.length, tot=this.notas.reduce((a,x)=>a+x.valor,0);
+    const idx=this.selecionadas(); if(!idx.length) return;
+    if(idx.some(i=>!this.notas[i].nome)) return this.toast('Falta o nome do cliente em uma nota. Clique em editar para completar.');
+    const e=this.s.empresa, prod=e.ambiente==='producao', n=idx.length, tot=idx.reduce((a,i)=>a+this.notas[i].valor,0), resto=this.notas.length-n;
     this.folha(prod?`Emitir ${plural(n,'nota','notas')}?`:`Emitir ${plural(n,'nota','notas')} de teste?`,
       prod?'As notas terão validade fiscal. Depois de emitidas, só podem ser canceladas.':'Modo de teste: as notas não têm validade fiscal.',`
       <div class="group">
         <div class="field"><span class="lbl">Empresa</span><div class="val">${esc(e.apelido||e.nome)}</div></div>
         <div class="field"><span class="lbl">Total</span><div class="val num">${brl(tot)}</div></div>
-      </div>`, 'Emitir', ()=>{ this.fechar(); this.emitirTudo(); });
+        ${resto?`<div class="field"><span class="lbl">Para depois</span><div class="val">${plural(resto,'nota guardada','notas guardadas')}</div></div>`:''}
+      </div>`, 'Emitir', ()=>{ this.fechar(); this.enviar(idx); });
   },
-  emitirTudo(){ this.enviar(this.notas.map((_,i)=>i)); },
+  emitirTudo(){ this.enviar(this.selecionadas()); },
   reenviar(){ this.enviar(this.st.map((s,i)=>s?.status==='erro'?i:-1).filter(i=>i>=0)); },
   async enviar(idx){
     this.erroEnvio=null; this.avisos();
@@ -618,8 +639,9 @@ const app={
   },
   evento(nome,d){
     if(nome==='progresso'){ this.st[this.fila[d.i]]=d; this.render(); }
-    if(nome==='fim'){ this.fase='pronto'; if(d.estado) this.s=d.estado; this.avisos(); this.render(); this.renderHistorico();
-      this.carregarClientes();
+    if(nome==='fim'){ this.fase='pronto'; if(d.estado) this.s=d.estado; this.avisos();
+      api().salvar_rascunho(this.notas.filter((_,i)=>this.st[i]?.status!=='ok'));
+      this.render(); this.renderHistorico(); this.carregarClientes();
       this.toast(d.ok===d.total?plural(d.ok,'nota emitida','notas emitidas'):`${d.ok} de ${d.total} emitidas`); }
   },
 
@@ -835,7 +857,7 @@ const app={
     const v=$('#a-upd'), b=$('#b-upd'); v.innerHTML='<span class="spin" style="display:inline-block;vertical-align:middle"></span>'; b.disabled=true;
     const up=await api().verificar_atualizacao(); b.disabled=false;
     if(up?.versao){ this.update=up; this.avisos(); v.textContent=`Versão ${up.versao} disponível`; b.textContent='Atualizar agora'; b.dataset.a='atualizar'; }
-    else v.textContent=up?.atual?'Você está na versão mais recente':'Sem conexão. Tente de novo.';
+    else { v.textContent=up?.atual?'Você está na versão mais recente':up?.erro||'Sem conexão. Tente de novo.'; v.style.whiteSpace='normal'; }
   },
   async atualizar(){ this.toast('Baixando atualização…'); const r=await api().instalar_atualizacao(); if(!r.ok) this.toast(r.erro); else this.toast('Instalando. O Notara abre de novo em instantes.'); },
 
@@ -907,10 +929,10 @@ const app={
     this.folha2(titulo,texto,'',ok,()=>{ this.fechar2(); acao(); },{destrutivo,onCancel});
     $('#sheet2-ok').focus();
   },
-  _montar(sel,id,titulo,sub,corpo,ok,acao,{cancelar='Cancelar',destrutivo=false,onCancel,soOk=false}={}){
+  _montar(sel,id,titulo,sub,corpo,ok,acao,{cancelar='Cancelar',destrutivo=false,onCancel,soOk=false,extra=''}={}){
     const el=$(sel); this[`_volta_${id}`]=document.activeElement; this[`_cancel_${id}`]=onCancel;
     el.innerHTML=`<div class="sh"><h3 id="${id}-t">${esc(titulo)}</h3>${sub?`<p>${esc(sub)}</p>`:''}</div>${corpo?`<div class="sb">${corpo}</div>`:''}
-      <div class="sf"><span class="s spacer" id="${id}-status" role="status" style="align-self:center"></span><button class="btn" id="${id}-c" ${soOk?'hidden':''}>${esc(cancelar)}</button><button class="btn ${destrutivo?'red':'primary'}" id="${id}-ok">${esc(ok)}</button></div>`;
+      <div class="sf">${extra}<span class="s spacer" id="${id}-status" role="status" style="align-self:center"></span><button class="btn" id="${id}-c" ${soOk?'hidden':''}>${esc(cancelar)}</button><button class="btn ${destrutivo?'red':'primary'}" id="${id}-ok">${esc(ok)}</button></div>`;
     el.parentNode.classList.add('on');
     $(`#${id}-ok`).onclick=acao; $(`#${id}-c`).onclick=()=>id==='sheet'?this.fechar(true):this.fechar2(true);
     el.onkeydown=e=>{

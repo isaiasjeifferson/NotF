@@ -273,6 +273,14 @@ def remover_cliente(perfil, doc, unidade=None):
         gravar_json(pasta / "clientes.json", todos)
 
 
+def rascunho(perfil):
+    return ler_json(pasta_dados(perfil) / f"lista-{MAQUINA}.json", [])
+
+
+def salvar_rascunho(perfil, notas):
+    gravar_json(pasta_dados(perfil) / f"lista-{MAQUINA}.json", notas)
+
+
 def historico(perfil):
     return ler_json(pasta_dados(perfil) / "historico.json", [])
 
