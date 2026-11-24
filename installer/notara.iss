@@ -14,6 +14,10 @@ DefaultDirName={localappdata}\Programs\Notara
 DisableProgramGroupPage=yes
 DisableDirPage=yes
 DisableReadyPage=yes
+DisableWelcomePage=yes
+DisableFinishedPage=yes
+WizardSmallImageFile=logo-pequeno.bmp,logo-pequeno-2x.bmp
+WizardSizePercent=100
 PrivilegesRequired=lowest
 OutputDir=..\dist
 OutputBaseFilename=Notara-{#Versao}-Instalar
@@ -28,21 +32,22 @@ CloseApplications=force
 [Languages]
 Name: "pt"; MessagesFile: "compiler:Languages\BrazilianPortuguese.isl"
 
-[Tasks]
-Name: "atalho"; Description: "Criar atalho na Área de Trabalho"
-
 [Files]
 Source: "..\build\dist\Notara\*"; DestDir: "{app}"; Flags: recursesubdirs ignoreversion
 Source: "MicrosoftEdgeWebview2Setup.exe"; DestDir: "{tmp}"; Flags: deleteafterinstall; Check: PrecisaWebView2
 
 [Icons]
 Name: "{userprograms}\Notara"; Filename: "{app}\Notara.exe"
-Name: "{userdesktop}\Notara"; Filename: "{app}\Notara.exe"; Tasks: atalho
+Name: "{userdesktop}\Notara"; Filename: "{app}\Notara.exe"
 
 [Run]
 Filename: "{tmp}\MicrosoftEdgeWebview2Setup.exe"; Parameters: "/silent /install"; StatusMsg: "Instalando componente do Windows (WebView2)…"; Check: PrecisaWebView2
-Filename: "{app}\Notara.exe"; Description: "Abrir o Notara"; Flags: nowait postinstall skipifsilent
-Filename: "{app}\Notara.exe"; Flags: nowait; Check: WizardSilent
+Filename: "{app}\Notara.exe"; Flags: nowait
+
+[Messages]
+SetupWindowTitle=Instalando o Notara
+WizardInstalling=Instalando o Notara
+InstallingLabel=Isso leva poucos segundos. O Notara abre sozinho ao terminar.
 
 [Code]
 const WV2 = 'SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}';

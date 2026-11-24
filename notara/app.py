@@ -145,7 +145,15 @@ class Api:
             "historico": historico,
             "motivos": MOTIVOS,
             "ocupado": self._envio.locked(),
+            "tema": a.get("tema", "auto"),
         }
+
+    def definir_tema(self, tema):
+        if tema in ("auto", "claro", "escuro"):
+            a = dados.ajustes()
+            a["tema"] = tema
+            dados.salvar_ajustes(a)
+        return {"ok": True}
 
     def trocar_empresa(self, cnpj):
         if self._envio.locked():

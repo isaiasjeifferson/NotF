@@ -13,11 +13,15 @@
   --shadow:0 1px 2px rgba(0,0,0,.04),0 4px 16px rgba(0,0,0,.04);--r:12px;
   font-family:"Segoe UI Variable Text","Segoe UI",-apple-system,BlinkMacSystemFont,system-ui,sans-serif;
 }
-@media (prefers-color-scheme:dark){:root{
+:root[data-tema=escuro]{color-scheme:dark;
   --bg:#000;--card:#1C1C1E;--label:#F5F5F7;--label2:#98989D;--label3:#636366;
   --sep:rgba(84,84,88,.55);--fill:rgba(120,120,128,.24);--fill2:rgba(120,120,128,.14);
   --blue:#0A84FF;--green:#30D158;--red:#FF453A;--orange:#FF9F0A;--scrim:rgba(0,0,0,.6);--shadow:none}
-  .sheet{background:#1C1C1E!important}.sheet .group{background:#2C2C2E}}
+:root[data-tema=escuro] .sheet{background:#1C1C1E}
+:root[data-tema=escuro] .sheet .group,:root[data-tema=escuro] .resultados,:root[data-tema=escuro] .menu{background:#2C2C2E}
+:root[data-tema=escuro] .seg button[aria-selected=true],:root[data-tema=escuro] .seg button[aria-checked=true]{background:#636366}
+:root[data-tema=escuro] .busca-cli input{background:#1C1C1E}
+:root[data-tema=escuro] .toast{background:rgba(58,58,60,.96)}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%}
@@ -42,7 +46,6 @@ h1{font-size:28px;font-weight:700;letter-spacing:-.02em}
 .seg{display:inline-flex;background:var(--fill);border-radius:9px;padding:2px}
 .seg button{padding:5px 15px;border-radius:7px;font-size:13px;font-weight:500}
 .seg button[aria-selected=true],.seg button[aria-checked=true]{background:var(--card);box-shadow:0 1px 3px rgba(0,0,0,.12)}
-@media (prefers-color-scheme:dark){.seg button[aria-selected=true],.seg button[aria-checked=true]{background:#636366}}
 .seg button:disabled{opacity:.35}
 .icon-btn{width:32px;height:32px;border-radius:8px;display:grid;place-items:center;color:var(--label2)}
 .icon-btn:hover{background:var(--fill2)}
@@ -112,6 +115,11 @@ footer .in{max-width:860px;margin:0 auto;display:flex;align-items:center;gap:12p
 .field.invalido{box-shadow:inset 3px 0 0 var(--red)}
 .field.invalido label{color:var(--red)}
 .unit{color:var(--label2)}
+input::-ms-reveal,input::-ms-clear{display:none}
+.olho{color:var(--blue);font-size:13px;font-weight:500;padding:4px 6px;border-radius:6px;flex:none}
+.olho:hover{background:var(--fill2)}
+.aparencia{position:fixed;top:14px;right:18px;z-index:6;display:flex;gap:8px;align-items:center;font-size:12px;color:var(--label2)}
+.aparencia .seg button{padding:3px 10px;font-size:12px}
 .hint{font-size:12px;color:var(--label2);margin:6px 16px 0;line-height:1.45}
 .hint.erro{color:var(--red)}
 .prev{font-size:13px;color:var(--label2);padding:10px 16px;border-top:1px solid var(--sep);background:var(--fill2)}
@@ -180,6 +188,7 @@ details summary::before{content:"›";display:inline-block;margin-right:6px;tran
 <body>
 
 <section id="setup" hidden aria-live="polite">
+  <div class="aparencia"><span>Aparência</span><div class="seg" role="radiogroup" id="tema-setup" aria-label="Aparência"></div></div>
   <div class="setup-in">
     <div class="etapa" id="etapa"></div>
     <div class="dots" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
@@ -274,6 +283,7 @@ const app={
 
   async init(){
     this.s=await api().estado();
+    this.aplicarTema(this.s.tema);
     if(!this.s.empresa) return this.cadastro();
     this.pronto();
     const up=await api().verificar_atualizacao(); if(up){ this.update=up; this.avisos(); }
@@ -346,10 +356,10 @@ const app={
     const voltar=`<button class="btn" data-a="irPasso" data-n="-1">Voltar</button>`;
     const P=[
       ()=>`<h2>Certificado da empresa</h2>
-        <p class="lead">É ele que autoriza a emissão na Receita. Use o certificado A1 que a certificadora enviou (arquivo .pfx ou .p12, costuma estar em Downloads).</p>
+        <p class="lead">Ele identifica a empresa e autoriza a emissão na Receita. Use o certificado digital A1 (e-CNPJ), arquivo .pfx ou .p12, emitido por uma certificadora ICP-Brasil.</p>
         <button class="drop ${c.arq?'on':''}" data-a="escolherPfx"><b>${c.arq?esc(c.arq.nome):'Escolher arquivo do certificado'}</b>${c.arq?'Clique para trocar':'.pfx ou .p12'}</button>
         <div class="group" style="margin-top:14px">
-          <div class="field" id="fc-senha"><label for="c-senha">Senha</label><input id="c-senha" type="password" placeholder="Senha do certificado" autocomplete="off"></div>
+          <div class="field" id="fc-senha"><label for="c-senha">Senha</label><input id="c-senha" type="password" placeholder="Senha do certificado" autocomplete="off"><button class="olho" data-a="olho" data-alvo="c-senha" aria-label="Mostrar senha">Mostrar</button></div>
           <div class="field"><span class="lbl" id="c-guardar-l">Guardar a senha</span><span class="spacer"></span>${sw('c-guardar',c.guardar)}</div>
         </div>
         <p class="hint">Desligado, o Notara pede a senha a cada envio. Indicado para computadores compartilhados.</p>
@@ -691,6 +701,9 @@ const app={
           <div class="prev" id="a-modelo-prev"></div>
         </div>`,
       geral:`<div class="group">
+          <div class="field"><span class="lbl">Aparência</span><span class="spacer"></span><div class="seg" role="radiogroup" id="tema-ajustes" aria-label="Aparência"></div></div>
+        </div>
+        <div class="group" style="margin-top:14px">
           <button class="field click" data-a="pasta" data-alvo="a-pnotas"><span class="lbl">Salvar notas em</span><div class="val" id="a-pnotas" data-valor="${esc(e.pasta_notas)}">${esc(e.pasta_notas)}</div></button>
           <button class="field click" data-a="pasta" data-alvo="a-pcomp"><span class="lbl">Pasta compartilhada</span><div class="val" id="a-pcomp" data-valor="${esc(e.pasta_compartilhada||'')}">${esc(e.pasta_compartilhada||'Não usar')}</div></button>
         </div>
@@ -709,7 +722,7 @@ const app={
     const nomes={empresa:'Empresa',notas:'Notas',geral:'Geral'};
     this.folha('Ajustes','',`<div class="tabs"><div class="seg" role="tablist" id="a-tabs">${Object.entries(nomes).map(([k,v])=>`<button role="tab" data-v="${k}" aria-selected="false">${v}</button>`).join('')}</div></div>
       ${Object.entries(panes).map(([k,h])=>`<div class="a-pane" role="tabpanel" data-v="${k}">${h}</div>`).join('')}`,'Salvar',()=>this.salvarAjustes());
-    this.irAba(aba);
+    this.irAba(aba); this.aplicarTema(this.tema);
     $$('#a-tabs button').forEach(b=>b.onclick=()=>this.irAba(b.dataset.v));
     this.segs(()=>{ if(segVal('a-amb')==='producao'&&e.ambiente!=='producao') this.ligarProducaoAgora(); });
     this.previa('a-modelo');
@@ -774,6 +787,19 @@ const app={
   },
   async atualizar(){ this.toast('Baixando atualização…'); const r=await api().instalar_atualizacao(); if(!r.ok) this.toast(r.erro); else this.toast('Instalando. O Notara abre de novo em instantes.'); },
 
+  /* ================= Aparência ================= */
+  tema:'auto',
+  aplicarTema(t){
+    this.tema=t||'auto';
+    const escuro=this.tema==='escuro'||(this.tema==='auto'&&matchMedia('(prefers-color-scheme: dark)').matches);
+    document.documentElement.dataset.tema=escuro?'escuro':'claro';
+    ['tema-setup','tema-ajustes'].forEach(id=>{ const el=$('#'+id); if(!el) return;
+      el.innerHTML=[['auto','Automático'],['claro','Claro'],['escuro','Escuro']].map(([v,n])=>`<button role="radio" data-v="${v}" aria-checked="${this.tema===v}">${n}</button>`).join('');
+      el.querySelectorAll('button').forEach(b=>b.onclick=()=>{ this.aplicarTema(b.dataset.v); api().definir_tema(b.dataset.v); }); });
+  },
+  olho(_,el){ const i=$('#'+el.dataset.alvo), ver=i.type==='password'; i.type=ver?'text':'password';
+    el.textContent=ver?'Ocultar':'Mostrar'; el.setAttribute('aria-label',ver?'Ocultar senha':'Mostrar senha'); i.focus(); },
+
   /* ================= Componentes ================= */
   segs(cb){ $$('[role=radiogroup] button').forEach(b=>b.onclick=()=>{ $$(`#${b.parentNode.id} button`).forEach(x=>x.setAttribute('aria-checked',x===b)); cb&&cb(); }); },
   previa(id){ const i=$('#'+id), p=$('#'+id+'-prev'), f=()=>p.innerHTML='Exemplo: <b>'+esc(aplicarModelo(i.value,'Unidade Centro'))+'</b>'; i.oninput=f; f(); },
@@ -793,7 +819,7 @@ const app={
     return r;
   },
   pedirSenha(cb,titulo='Senha do certificado',cancel){
-    this.folha2(titulo,'Necessária para assinar. Não fica guardada.',`<div class="group"><div class="field" id="fp-senha"><label for="p-senha">Senha</label><input id="p-senha" type="password" autocomplete="off"></div></div>`,
+    this.folha2(titulo,'Necessária para assinar. Não fica guardada.',`<div class="group"><div class="field" id="fp-senha"><label for="p-senha">Senha</label><input id="p-senha" type="password" autocomplete="off"><button class="olho" data-a="olho" data-alvo="p-senha" aria-label="Mostrar senha">Mostrar</button></div></div>`,
       'Continuar',()=>{ const s=$('#p-senha').value; if(!s) return this.invalido('fp-senha','Digite a senha.'); this.fechar2(); cb(s); },{onCancel:cancel});
     $('#p-senha').focus();
   },
@@ -876,6 +902,8 @@ document.addEventListener('drop',e=>{
   const f=e.dataTransfer.files[0]; if(!f||!/\.pdf$/i.test(f.name)) return app.toast('Arraste um arquivo PDF.');
   const r=new FileReader(); r.onload=async()=>app.adicionar(await api().importar_pdf(r.result.split(',')[1])); r.readAsDataURL(f);
 });
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>{ if(app.tema==='auto') app.aplicarTema('auto'); });
+app.aplicarTema('auto');
 window.addEventListener('pywebviewready',()=>app.init());
 </script>
 </body>
