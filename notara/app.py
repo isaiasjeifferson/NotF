@@ -249,7 +249,7 @@ class Api:
             if "ambiente" in p:
                 if p["ambiente"] not in ("teste", "producao"):
                     raise NfseErro("Ambiente inválido.")
-                if p["ambiente"] == "producao" and not perfil.get("teste_ok"):
+                if p["ambiente"] == "producao" and not perfil.get("teste_ok") and not p.get("sem_teste"):
                     raise NfseErro("Emita uma nota de teste antes de ligar a produção.")
                 perfil["ambiente"] = p["ambiente"]
 

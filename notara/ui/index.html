@@ -735,7 +735,7 @@ const app={
           <div class="field"><span class="lbl">Conexão com a Receita</span><span class="spacer"></span><button class="link" data-a="testar" id="b-testar">Testar</button></div>
           <div id="a-con" hidden style="padding:4px 16px 12px"></div>
         </div>
-        <p class="hint">${e.teste_ok?'Na produção, as notas têm validade fiscal.':'Emita uma nota de teste para liberar a produção.'}</p>
+        <p class="hint">${e.teste_ok?'Na produção, as notas têm validade fiscal.':'Emita uma nota de teste para liberar a produção. <button class="link" data-a="producaoSemTeste">O ambiente de teste não funciona?</button>'}</p>
         <div class="gt">Serviço</div>
         <div class="group">
           <div class="field" id="fa-nac"><label for="a-nac">Código do serviço</label><input id="a-nac" class="num" value="${esc(s.cod_nacional)}"></div>
@@ -806,6 +806,15 @@ const app={
   },
   irAba(v){ $$('#a-tabs button').forEach(b=>b.setAttribute('aria-selected',b.dataset.v===v)); $$('.a-pane').forEach(p=>p.hidden=p.dataset.v!==v); },
   ligarProducao(){ this.ligarProducaoAgora(); },
+  producaoSemTeste(){
+    this.confirmar('Ligar a produção sem nota de teste?',
+      'Use só se o teste da Receita estiver bloqueado e a conexão de Produção estiver ok. Comece emitindo uma única nota e confira o PDF antes de emitir as demais.',
+      'Ligar produção',true,async()=>{
+        const r=await api().salvar_empresa({cnpj:this.s.empresa.cnpj,ambiente:'producao',sem_teste:true},false,null);
+        if(!r.ok) return this.toast(r.erro);
+        this.s=r.estado; this.cabecalho(); this.avisos(); this.fechar(); this.toast('Produção ligada. Comece por uma nota só.');
+      });
+  },
   ligarProducaoAgora(){
     this.confirmar('Ligar a produção?','A partir de agora as notas terão validade fiscal. As notas de teste continuam na pasta Testes.','Ligar',false,async()=>{
       const r=await api().salvar_empresa({cnpj:this.s.empresa.cnpj,ambiente:'producao'},false,null);
