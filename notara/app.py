@@ -653,12 +653,12 @@ class Api:
             d = r.json()
             versao = str(d.get("tag_name", "")).lstrip("v")
             if _versao(versao) <= _versao(__version__):
-                return None
+                return {"atual": True}
             nome = f"Notara-{versao}-Instalar.exe"
             asset = next((a for a in d.get("assets", []) if a.get("name") == nome), None)
             digest = str((asset or {}).get("digest") or "")
             if not asset or not digest.startswith("sha256:"):
-                return None
+                return {"atual": True}
             self._update = {"versao": versao, "url": asset["browser_download_url"], "sha256": digest[7:].lower(),
                             "tamanho": int(asset.get("size") or 0)}
             return {"versao": versao}

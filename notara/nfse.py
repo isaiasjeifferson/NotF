@@ -1,5 +1,6 @@
 """Comunicação com o Sistema Nacional da NFS-e: montar, assinar, validar e enviar."""
 import base64
+import logging
 import gzip
 import hashlib
 import os
@@ -139,6 +140,10 @@ class Certificado:
         """
         senha = secrets.token_bytes(32)
         ctx = ssl.create_default_context()
+        # Os servidores da Receita pedem o certificado no meio da conexão (renegociação no TLS 1.2
+        # ou "post-handshake" no 1.3). Sem isto o certificado não é enviado e a Receita recusa.
+        ctx.post_handshake_auth = True
+        ctx.maximum_version = ssl.TLSVersion.TLSv1_2
         fd, caminho = tempfile.mkstemp(prefix="notara_", suffix=".pem")
         try:
             with os.fdopen(fd, "wb") as f:
@@ -340,6 +345,7 @@ class Receita:
 
     def testar(self, cmun):
         r = self._req("GET", f"{self.urls['sefin']}/parametros_municipais/{cmun}/convenio")
+        logging.getLogger("notara").info("teste de conexão: HTTP %s %s", r.status_code, r.text[:300].replace("\n", " "))
         if r.status_code in (401, 403, 495, 496):
             raise NfseErro(f"A Receita recusou a conexão (código {r.status_code}). Faça uma nota de teste para ver o motivo.")
         if r.status_code >= 500:

@@ -301,7 +301,7 @@ const app={
     this.aplicarTema(this.s.tema);
     if(!this.s.empresa) return this.cadastro();
     this.pronto();
-    const up=await api().verificar_atualizacao(); if(up){ this.update=up; this.avisos(); }
+    const up=await api().verificar_atualizacao(); if(up?.versao){ this.update=up; this.avisos(); }
   },
   pronto(){ $('#setup').hidden=true; this.cabecalho(); this.avisos(); this.render(); this.renderHistorico(); this.carregarClientes(); },
   async carregarClientes(){ this.clis=await api().clientes_salvos(); $('#busca-cli').hidden=!this.clis.length; },
@@ -733,7 +733,12 @@ const app={
           <div class="group">${['producao','teste'].map(a=>['sefin','adn'].map(k=>`<div class="field col"><label for="u-${a}-${k}">${a==='producao'?'Produção':'Teste'} · ${k==='sefin'?'emissão':'PDF das notas'}</label><input id="u-${a}-${k}" value="${esc(u[a][k])}"></div>`).join('')).join('')}</div>
           <p class="hint">Endereços oficiais da Receita. Só mude se a Receita anunciar outros. <button class="link" data-a="restaurarUrls">Restaurar padrão</button> <button class="link" data-a="abrirLog">Abrir registro de erros</button></p>
         </details>
-        <p class="hint" style="text-align:center;margin-top:18px">Notara ${esc(this.s.versao)}</p>`,
+        <div class="gt">Sobre</div>
+        <div class="group">
+          <div class="field"><span class="lbl">Versão</span><div class="val num">Notara ${esc(this.s.versao)}</div></div>
+          <div class="field"><span class="lbl">Atualização</span><div class="val" id="a-upd">${this.update?'Versão '+esc(this.update.versao)+' disponível':''}</div>
+            <button class="link" id="b-upd" data-a="${this.update?'atualizar':'buscarAtualizacao'}">${this.update?'Atualizar agora':'Buscar atualização'}</button></div>
+        </div>`,
     };
     const nomes={empresa:'Empresa',notas:'Notas',geral:'Geral'};
     this.folha('Ajustes','',`<div class="tabs"><div class="seg" role="tablist" id="a-tabs">${Object.entries(nomes).map(([k,v])=>`<button role="tab" data-v="${k}" aria-selected="false">${v}</button>`).join('')}</div></div>
@@ -804,6 +809,12 @@ const app={
       if(this.fase==='enviando') return this.toast('Aguarde o envio terminar.');
       this.notas.length&&this.fase==='lista'?this.confirmar('Trocar de empresa?','A lista atual será descartada.','Trocar',false,()=>trocar(x.cnpj)):trocar(x.cnpj);
     },'',x.cnpj===this.s.empresa.cnpj]),'-',['Adicionar empresa…',()=>this.cadastro()]]);
+  },
+  async buscarAtualizacao(){
+    const v=$('#a-upd'), b=$('#b-upd'); v.innerHTML='<span class="spin" style="display:inline-block;vertical-align:middle"></span>'; b.disabled=true;
+    const up=await api().verificar_atualizacao(); b.disabled=false;
+    if(up?.versao){ this.update=up; this.avisos(); v.textContent=`Versão ${up.versao} disponível`; b.textContent='Atualizar agora'; b.dataset.a='atualizar'; }
+    else v.textContent=up?.atual?'Você está na versão mais recente':'Sem conexão. Tente de novo.';
   },
   async atualizar(){ this.toast('Baixando atualização…'); const r=await api().instalar_atualizacao(); if(!r.ok) this.toast(r.erro); else this.toast('Instalando. O Notara abre de novo em instantes.'); },
 
