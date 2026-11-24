@@ -18,7 +18,7 @@ from pathlib import Path
 import requests
 
 from . import __version__, dados, importar, nfse
-from .nfse import NfseErro, SemResposta, digitos
+from .nfse import Bloqueio, NfseErro, SemResposta, digitos
 
 REPO = "isaiasjeifferson/notara"
 MOTIVOS = {"1": "Erro na emissão", "2": "Serviço não prestado", "9": "Outro motivo"}
@@ -503,13 +503,28 @@ class Api:
 
     def _lote(self, perfil, cert, receita, notas):
         ok = 0
+        bloqueio = None
         try:
+            # Checagem rápida antes de enviar: se o acesso estiver bloqueado, nenhuma nota é tentada.
+            self._evento("verificando", {})
+            try:
+                receita.testar(perfil["municipio_ibge"])
+            except Bloqueio as e:
+                bloqueio = e
+            except NfseErro:
+                pass
             for i, nota in enumerate(notas):
+                if bloqueio:
+                    self._evento("progresso", {"i": i, "status": "parado"})
+                    continue
                 self._evento("progresso", {"i": i, "status": "enviando", "etapa": 0})
                 try:
                     item = self._uma(perfil, cert, receita, nota, lambda e, i=i: self._evento("etapa", {"i": i, "etapa": e}))
                     ok += 1
                     self._evento("progresso", {"i": i, "status": "ok", "item": item})
+                except Bloqueio as e:
+                    bloqueio = e
+                    self._evento("progresso", {"i": i, "status": "parado"})
                 except SemResposta as e:
                     self._evento("progresso", {"i": i, "status": "incerto", "msg": str(e)})
                 except (NfseErro, TimeoutError) as e:
@@ -530,7 +545,10 @@ class Api:
             except Exception:
                 log.exception("estado")
                 est = None
-            self._evento("fim", {"ok": ok, "total": len(notas), "estado": est})
+            fim = {"ok": ok, "total": len(notas), "estado": est}
+            if bloqueio:
+                fim["bloqueio"] = {"msg": str(bloqueio), "tipo": bloqueio.tipo, "ambiente": perfil["ambiente"]}
+            self._evento("fim", fim)
 
     def _uma(self, perfil, cert, receita, nota, etapa=lambda e: None):
         doc = digitos(nota.get("cnpj"))

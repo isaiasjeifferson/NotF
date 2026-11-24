@@ -58,6 +58,15 @@ class SemResposta(NfseErro):
     """A Receita pode ter recebido o pedido, mas a resposta não chegou."""
 
 
+class Bloqueio(NfseErro):
+    """Problema que afeta todas as notas (acesso negado, sem internet, Receita fora do ar).
+    O lote para na hora em vez de tentar nota por nota. 'tipo' orienta a ação na interface."""
+
+    def __init__(self, msg, tipo):
+        super().__init__(msg)
+        self.tipo = tipo  # acesso | conexao | receita | certificado
+
+
 def digitos(s):
     return "".join(ch for ch in str(s or "") if ch.isdigit())
 
@@ -343,7 +352,7 @@ class _AdaptadorTLS(HTTPAdapter):
 
 
 class Receita:
-    def __init__(self, cert: Certificado, urls: dict, timeout=60):
+    def __init__(self, cert: Certificado, urls: dict, timeout=(10, 40)):
         if not (url_valida(urls.get("sefin")) and url_valida(urls.get("adn"))):
             raise NfseErro("Endereço da Receita inválido. Restaure o padrão em Ajustes.")
         self.urls, self.timeout = urls, timeout
@@ -354,30 +363,40 @@ class Receita:
         try:
             return self.sessao.request(metodo, url, timeout=self.timeout, allow_redirects=False, **kw)
         except requests.exceptions.SSLError:
-            raise NfseErro("A Receita não aceitou o certificado. Confira se ele é o e-CNPJ da empresa e está válido.")
-        except (requests.exceptions.Timeout, requests.exceptions.ConnectionError) as e:
-            raise SemResposta("Sem resposta da Receita. Verifique a internet.") from e
+            raise Bloqueio("A Receita não aceitou o certificado. Confira se ele é o e-CNPJ da empresa e está válido.", "certificado")
+        except (requests.exceptions.ConnectTimeout, requests.exceptions.ConnectionError) as e:
+            # nada foi enviado: seguro tentar de novo
+            raise Bloqueio("Sem conexão com a Receita. Verifique a internet.", "conexao") from e
+        except requests.exceptions.ReadTimeout as e:
+            raise SemResposta("A Receita não respondeu a tempo.") from e
         except requests.exceptions.RequestException as e:
-            raise SemResposta("Falha de comunicação com a Receita.") from e
+            raise Bloqueio("Falha de comunicação com a Receita.", "conexao") from e
+
+    @staticmethod
+    def _bloqueio_http(r):
+        if r.status_code in (401, 403, 495, 496):
+            raise Bloqueio(f"A Receita recusou o acesso deste certificado neste ambiente (HTTP {r.status_code} · {_detalhe_http(r)}).", "acesso")
+        if r.status_code in (502, 503, 504):
+            raise Bloqueio(f"O sistema da Receita está fora do ar (HTTP {r.status_code}). Tente mais tarde.", "receita")
 
     def testar(self, cmun):
         url = f"{self.urls['sefin']}/parametros_municipais/{cmun}/convenio"
         r = self._req("GET", url)
         detalhe = _detalhe_http(r)
         logging.getLogger("notara").info("teste de conexão %s: HTTP %s %s", url, r.status_code, detalhe)
-        if r.status_code in (401, 403, 495, 496):
-            raise NfseErro(f"A Receita recusou o acesso (HTTP {r.status_code}{' · ' + detalhe if detalhe else ''}).")
+        self._bloqueio_http(r)
         if r.status_code >= 500:
-            raise NfseErro("O sistema da Receita está fora do ar no momento.")
+            raise Bloqueio("O sistema da Receita está com problemas no momento. Tente mais tarde.", "receita")
         return {"municipio_ativo": r.status_code == 200}
 
     def dps_existe(self, ident):
         r = self._req("HEAD", f"{self.urls['sefin']}/dps/{ident}")
+        self._bloqueio_http(r)
         if r.status_code >= 500:
             raise SemResposta("O sistema da Receita está instável. Tente em instantes.")
         return r.status_code == 200
 
-    def chave_da_dps(self, ident, tentativas=3, espera=5):
+    def chave_da_dps(self, ident, tentativas=2, espera=4):
         """Descobre se uma DPS já virou nota. Usado quando a resposta do envio se perdeu."""
         for i in range(tentativas):
             try:
@@ -396,6 +415,7 @@ class Receita:
 
     def emitir(self, xml: bytes):
         r = self._req("POST", f"{self.urls['sefin']}/nfse", json={"dpsXmlGZipB64": _gz64(xml)})
+        self._bloqueio_http(r)
         try:
             dados = r.json()
         except ValueError:

@@ -140,6 +140,14 @@ class ReceitaFalsa:
     def __init__(self, *a):
         self.n = 0
 
+    bloquear = False
+
+    def testar(self, cmun):
+        if self.bloquear:
+            from notara import nfse
+            raise nfse.Bloqueio("A Receita recusou o acesso", "acesso")
+        return {"municipio_ativo": True}
+
     def dps_existe(self, i):
         return i.endswith("1")  # número 1 já usado na Receita
 
@@ -245,3 +253,20 @@ def test_descricao_do_cliente_atualiza_mes(ambiente):
                      "Lavanderia - prestação de serviço de Janeiro de 2020 - Centro - rua: X, 1")
     desc = api.descricao_cliente("11222333000181", "Centro")
     assert "Janeiro de 2020" not in desc and desc.endswith("Centro - rua: X, 1")
+
+
+def test_bloqueio_para_o_lote_sem_tentar_as_notas(ambiente):
+    d = ambiente.dados
+    api = _cadastrar(ambiente)
+    eventos = []
+    api._evento = lambda nome, x: eventos.append((nome, x))
+    perfil = d.empresa()
+    r = ReceitaFalsa()
+    r.bloquear = True
+    api._envio.acquire()
+    api._lote(perfil, api._cert(perfil), r, [NOTA, NOTA, NOTA])
+    assert r.n == 0  # nenhuma nota foi enviada
+    assert [x["status"] for nome, x in eventos if nome == "progresso"] == ["parado"] * 3
+    fim = eventos[-1][1]
+    assert fim["ok"] == 0 and fim["bloqueio"]["tipo"] == "acesso"
+    assert not api._envio.locked()

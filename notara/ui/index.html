@@ -546,12 +546,15 @@ const app={
         <div class="group">${idx.map(i=>this.linha(i)).join('')}</div></section>`; }).join('')
       +(this.ignoradas.length?`<p class="hint" style="margin-top:12px">Ignoradas (marcadas no arquivo): ${esc(this.ignoradas.join(', '))}.</p>`:'');
     const marcadas=n.filter(x=>this.sel(x)), tot=marcadas.reduce((a,x)=>a+x.valor,0), ok=this.st.filter(s=>s?.status==='ok').length,
-      falhas=this.st.filter(s=>s?.status==='erro').length, feitos=this.st.filter(s=>s&&!['aguardando','enviando'].includes(s.status)).length;
+      falhas=this.st.filter(s=>s?.status==='erro'||s?.status==='parado').length, feitos=this.st.filter(s=>s&&!['aguardando','enviando'].includes(s.status)).length;
     const prim=$('#b-pri'), sec=$('#b-sec'), barra=$('#barra');
     barra.hidden=true;
     if(this.fase==='enviando'){
       $('#qtd').textContent=`${Math.min(feitos+1,this.fila.length)} de ${this.fila.length}`;
       prim.textContent='Emitindo…'; prim.disabled=true; sec.hidden=true;
+    } else if(this.fase==='pronto'&&this.bloqueio){
+      $('#qtd').textContent=`${plural(ok,'emitida','emitidas')} · ${plural(falhas,'não enviada','não enviadas')}`;
+      sec.hidden=true; prim.disabled=false; prim.textContent='Voltar à lista'; prim.dataset.a='voltarLista';
     } else if(this.fase==='pronto'){
       const resto=n.length-ok;
       $('#qtd').textContent=`${plural(ok,'emitida','emitidas')}${falhas?` · ${falhas} com erro`:''}`;
@@ -565,9 +568,31 @@ const app={
     $('#total').textContent=brl(this.fase==='lista'?tot:n.reduce((a,x)=>a+x.valor,0));
     const at=$('.row.ativa'); if(at&&this.fase==='enviando') at.scrollIntoView({block:'nearest',behavior:'smooth'});
   },
+  cartaoBloqueio(){
+    const b=this.bloqueio, ok=this.fila.filter(i=>this.st[i]?.status==='ok').length, parados=this.fila.filter(i=>this.st[i]?.status==='parado').length;
+    const T={
+      acesso: b.ambiente==='teste'
+        ? ['O ambiente de teste da Receita não liberou o acesso','A Receita mantém um servidor só para testes, e ele não aceita este certificado. Isso não impede a emissão real: a conexão de produção pode estar normal.',
+           [['Ligar produção','producaoSemTeste','primary'],['Ver detalhes técnicos','verRegistro','']]]
+        : ['A Receita recusou o certificado','O certificado foi enviado, mas a Receita não autorizou a emissão. Confira se é o e-CNPJ desta empresa e se está válido.',
+           [['Trocar certificado','trocarCert','primary'],['Testar conexão','abrirTesteConexao',''],['Ver detalhes técnicos','verRegistro','']]],
+      conexao:['Sem conexão com a Receita','Nenhuma nota foi enviada. Confira a internet deste computador e tente de novo.',[['Tentar de novo','reenviarParados','primary']]],
+      receita:['O sistema da Receita está fora do ar','Nenhuma nota foi perdida. Tente de novo em alguns minutos.',[['Tentar de novo','reenviarParados','primary']]],
+      certificado:['O certificado não foi aceito','A conexão segura falhou. O certificado pode estar vencido, revogado ou não ser e-CNPJ.',[['Trocar certificado','trocarCert','primary'],['Ver detalhes técnicos','verRegistro','']]],
+    }[b.tipo]||['Não foi possível emitir',b.msg,[['Tentar de novo','reenviarParados','primary']]];
+    return `<div class="progresso" role="alert" style="border:1px solid color-mix(in srgb,var(--red) 35%,transparent)">
+      <div class="topo"><span class="st erro">${ICON.erro}</span><b>${T[0]}</b></div>
+      <p style="margin:6px 0 4px;color:var(--label2);font-size:13px">${T[1]}</p>
+      <p class="s" style="white-space:normal;user-select:text">${esc(b.msg)}</p>
+      <div class="cont">${ok?`<span><b>${ok}</b> emitidas</span>`:''}<span><b>${parados}</b> não enviadas · continuam na lista</span></div>
+      <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">${T[2].map(([t,a,c])=>`<button class="btn ${c}" data-a="${a}">${t}</button>`).join('')}</div></div>`;
+  },
+  reenviarParados(){ this.enviar(this.fila.filter(i=>this.st[i]?.status==='parado'||this.st[i]?.status==='erro')); },
+  abrirTesteConexao(){ this.ajustes('notas'); setTimeout(()=>this.testar(),50); },
   ETAPAS:['Preparando a nota','Reservando o número','Enviando à Receita','Baixando o PDF'],
   cartaoProgresso(){
     if(this.fase==='lista'||!this.fila) return '';
+    if(this.fase==='pronto'&&this.bloqueio) return this.cartaoBloqueio();
     const total=this.fila.length, sts=this.fila.map(i=>this.st[i]), ok=sts.filter(s=>s?.status==='ok').length,
       erro=sts.filter(s=>s?.status==='erro'||s?.status==='incerto').length, feitos=ok+erro, atual=sts.find(s=>s?.status==='enviando');
     const fim=this.fase==='pronto', frac=fim?1:(feitos+(atual?((atual.etapa||0)+.5)/4:0))/total, pct=Math.round(frac*100);
@@ -575,7 +600,7 @@ const app={
     if(fim) agora=erro?`Concluído com ${plural(erro,'nota com erro','notas com erro')}. Corrija e tente de novo.`:'Todas as notas foram emitidas.';
     else if(atual){ const i=this.fila[sts.indexOf(atual)], x=this.notas[i], seg=Math.floor((Date.now()-(atual.inicio||Date.now()))/1000);
       agora=`<div class="spin"></div><span><b style="color:var(--label);font-weight:500">${esc(x.unidade||x.nome)}</b> · ${this.ETAPAS[atual.etapa||0]}…${seg>=15?` <span style="color:var(--orange)">A Receita está demorando (${seg}s). Aguarde, não feche o programa.</span>`:''}</span>`; }
-    else agora='<div class="spin"></div><span>Conectando à Receita…</span>';
+    else agora=`<div class="spin"></div><span>${this.verificando?'Verificando o acesso à Receita…':'Conectando à Receita…'}</span>`;
     return `<div class="progresso" role="status" aria-live="polite">
       <div class="topo"><b>${fim?(erro?'Envio concluído':'Notas emitidas'):'Emitindo notas'}</b><span class="s">${feitos} de ${total}</span><span class="pct">${pct}%</span></div>
       <div class="trilho ${fim?'fim':''}" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><i style="width:${Math.max(pct,2)}%"></i></div>
@@ -583,11 +608,12 @@ const app={
       <div class="cont"><span><b>${ok}</b> emitidas</span>${erro?`<span><b style="color:var(--red)">${erro}</b> com erro</span>`:''}<span><b>${total-feitos}</b> na fila</span></div></div>`;
   },
   linha(i){
-    const x=this.notas[i], st=this.st[i], lista=this.fase==='lista', edit=lista||(this.fase==='pronto'&&st?.status==='erro');
+    const x=this.notas[i], st=this.st[i], lista=this.fase==='lista', edit=lista||(this.fase==='pronto'&&['erro','parado'].includes(st?.status));
     const rot=esc(x.unidade||x.nome||fmtDoc(x.cnpj));
     let esq='', dir=`<div class="v num" style="${lista&&!this.sel(x)?'color:var(--label3)':''}">${brl(x.valor)}</div>`, extra='';
     if(lista) esq=`<button class="check-n" role="checkbox" aria-checked="${this.sel(x)}" data-a="alternarSel" data-i="${i}" aria-label="Emitir a nota de ${rot}">${this.sel(x)?ICON.check:''}</button>`;
     if(st?.status==='enviando') esq='<div class="spin" aria-label="Enviando"></div>';
+    if(st?.status==='parado'){ esq=`<span class="badge" title="Não enviada">Parada</span>`; }
     if(st?.status==='aguardando') esq=`<span class="fila" title="Na fila">${this.fila.indexOf(i)+1}</span>`;
     if(st?.status==='erro'){ esq=`<div class="st erro">${ICON.erro}</div>`; extra=`<div class="err">${esc(st.msg)}</div>`; }
     if(st?.status==='incerto'){ esq=`<div class="st incerto">${ICON.erro}</div>`; extra=`<div class="err warn">${esc(st.msg)}</div>`; }
@@ -625,6 +651,7 @@ const app={
     this.confirmar('Limpar a lista?',`${plural(this.notas.length,'nota será excluída','notas serão excluídas')} da lista, inclusive as guardadas para depois.`,'Limpar',true,()=>this.reset());
   },
   voltarLista(){
+    this.bloqueio=null;
     const resto=this.notas.filter((_,i)=>this.st[i]?.status!=='ok');
     this.notas=resto; this.st=[]; this.fase='lista'; this.erroEnvio=null; this.avisos(); this.render();
   },
@@ -678,9 +705,9 @@ const app={
       </div>`, 'Emitir', ()=>{ this.fechar(); this.enviar(idx); });
   },
   emitirTudo(){ this.enviar(this.selecionadas()); },
-  reenviar(){ this.enviar(this.st.map((s,i)=>s?.status==='erro'?i:-1).filter(i=>i>=0)); },
+  reenviar(){ this.enviar(this.st.map((s,i)=>['erro','parado'].includes(s?.status)?i:-1).filter(i=>i>=0)); },
   async enviar(idx){
-    this.erroEnvio=null; this.avisos();
+    this.erroEnvio=null; this.bloqueio=null; this.avisos();
     const r=await this.comSenha(s=>api().emitir(idx.map(i=>this.notas[i]),s));
     if(!r) return;
     if(!r.ok){ this.erroEnvio=r.erro; this.avisos(); return; }
@@ -688,12 +715,13 @@ const app={
     clearInterval(this._tick); this._tick=setInterval(()=>{ if(this.fase!=='enviando') return clearInterval(this._tick); const c=$('.progresso'); if(c) c.outerHTML=this.cartaoProgresso(); },1000);
   },
   evento(nome,d){
-    if(nome==='progresso'){ if(d.status==='enviando') d.inicio=Date.now(); this.st[this.fila[d.i]]=d; this.render(); }
+    if(nome==='progresso'){ this.verificando=false; if(d.status==='enviando') d.inicio=Date.now(); this.st[this.fila[d.i]]=d; this.render(); }
+    if(nome==='verificando'){ this.verificando=true; this.render(); }
     if(nome==='etapa'){ const s=this.st[this.fila[d.i]]; if(s){ s.etapa=d.etapa; this.render(); } }
-    if(nome==='fim'){ this.fase='pronto'; if(d.estado) this.s=d.estado; this.avisos();
+    if(nome==='fim'){ this.fase='pronto'; this.verificando=false; this.bloqueio=d.bloqueio||null; if(d.estado) this.s=d.estado; this.avisos();
       api().salvar_rascunho(this.notas.filter((_,i)=>this.st[i]?.status!=='ok'));
       this._clis=null; this.render(); this.renderHistorico(); this.carregarClientes();
-      this.toast(d.ok===d.total?plural(d.ok,'nota emitida','notas emitidas'):`${d.ok} de ${d.total} emitidas`); }
+      if(!d.bloqueio) this.toast(d.ok===d.total?plural(d.ok,'nota emitida','notas emitidas'):`${d.ok} de ${d.total} emitidas`); }
   },
 
   /* ================= Clientes ================= */
