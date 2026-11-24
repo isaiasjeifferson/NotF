@@ -58,9 +58,9 @@ def test_dps_valida_e_assinada(ambiente):
     ds = "{http://www.w3.org/2000/09/xmldsig#}"
     si = doc.find(f"{ds}Signature/{ds}SignedInfo")
     inf = doc.find(f"{{{n.NS}}}infDPS")
-    assert base64.b64encode(hashlib.sha1(etree.tostring(inf, method="c14n")).digest()).decode() == si.find(f".//{ds}DigestValue").text
+    assert base64.b64encode(hashlib.sha1(n._c14n(inf)).digest()).decode() == si.find(f".//{ds}DigestValue").text
     cert.cert.public_key().verify(base64.b64decode(doc.find(f"{ds}Signature/{ds}SignatureValue").text),
-                                  etree.tostring(si, method="c14n"), padding.PKCS1v15(), hashes.SHA1())
+                                  n._c14n(si), padding.PKCS1v15(), hashes.SHA1())
     assert doc.find(f".//{{{n.NS}}}vServ").text == "9173.80"
     assert doc.find(f".//{{{n.NS}}}pTotTribSN").text == "10.88"
 
@@ -270,3 +270,18 @@ def test_bloqueio_para_o_lote_sem_tentar_as_notas(ambiente):
     fim = eventos[-1][1]
     assert fim["ok"] == 0 and fim["bloqueio"]["tipo"] == "acesso"
     assert not api._envio.locked()
+
+
+def test_assinatura_confere_em_verificador_independente(ambiente):
+    """Regressão do erro E0714: a assinatura precisa validar fora do lxml/libxml2 usado para gerar."""
+    from signxml import DigestAlgorithm, SignatureConfiguration, SignatureMethod, XMLVerifier
+    n = ambiente.nfse
+    cert = n.Certificado(pfx(), "1234")
+    pem = cert.cert.public_bytes(serialization.Encoding.PEM).decode()
+    cfg = SignatureConfiguration(signature_methods=frozenset({SignatureMethod.RSA_SHA1}),
+                                 digest_algorithms=frozenset({DigestAlgorithm.SHA1}), require_x509=False)
+    dps = n.assinar(n.montar_dps(PERFIL, {**NOTA, "descricao": "Serviço de lavanderia - Novembro de 2026 - Unidade"}, 3, "producao")[0], cert)
+    canc = n.assinar(n.montar_cancelamento("3" * 50, PERFIL["cnpj"], "producao", 1, "Valor digitado errado na nota"), cert)
+    for xml in (dps, canc):
+        assert b'xmlns=""' not in xml
+        XMLVerifier().verify(xml, x509_cert=pem, expect_config=cfg)

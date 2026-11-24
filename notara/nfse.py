@@ -255,10 +255,25 @@ def montar_cancelamento(chave, cnpj, ambiente, motivo_cod, motivo_txt):
     return root
 
 
+def _reparse(el):
+    return etree.fromstring(etree.tostring(el))
+
+
+def _c14n(el):
+    """C14N 1.0 inclusivo de um elemento como a Receita calcula.
+
+    O c14n do libxml2 sobre um subelemento cujo namespace padrão foi redeclarado por um ancestral
+    gera xmlns="" indevidos (quebrava a assinatura: erro E0714). Canonicalizar uma cópia isolada
+    do elemento dá o mesmo resultado correto, pois os únicos namespaces em uso são o padrão de cada
+    trecho, que a cópia já declara."""
+    return etree.tostring(etree.fromstring(etree.tostring(el)), method="c14n")
+
+
 def assinar(root, cert: Certificado):
-    inf = root[0]
-    digest = base64.b64encode(hashlib.sha1(etree.tostring(inf, method="c14n")).digest()).decode()
-    sig = etree.SubElement(root, f"{{{DS}}}Signature", nsmap={None: DS})
+    doc = _reparse(root)
+    inf = doc[0]
+    digest = base64.b64encode(hashlib.sha1(_c14n(inf)).digest()).decode()
+    sig = etree.SubElement(doc, f"{{{DS}}}Signature", nsmap={None: DS})
     si = etree.SubElement(sig, f"{{{DS}}}SignedInfo")
     etree.SubElement(si, f"{{{DS}}}CanonicalizationMethod", Algorithm=C14N)
     etree.SubElement(si, f"{{{DS}}}SignatureMethod", Algorithm=DS + "rsa-sha1")
@@ -268,11 +283,14 @@ def assinar(root, cert: Certificado):
     etree.SubElement(tr, f"{{{DS}}}Transform", Algorithm=C14N)
     etree.SubElement(ref, f"{{{DS}}}DigestMethod", Algorithm=DS + "sha1")
     etree.SubElement(ref, f"{{{DS}}}DigestValue").text = digest
-    valor = cert.assinar(etree.tostring(si, method="c14n"))
+    doc = _reparse(doc)  # o SignedInfo assinado precisa ser exatamente o que será lido
+    sig = doc.find(f"{{{DS}}}Signature")
+    si = sig.find(f"{{{DS}}}SignedInfo")
+    valor = cert.assinar(_c14n(si))
     etree.SubElement(sig, f"{{{DS}}}SignatureValue").text = base64.b64encode(valor).decode()
     x509d = etree.SubElement(etree.SubElement(sig, f"{{{DS}}}KeyInfo"), f"{{{DS}}}X509Data")
     etree.SubElement(x509d, f"{{{DS}}}X509Certificate").text = cert.cert_b64()
-    return etree.tostring(root, xml_declaration=True, encoding="UTF-8")
+    return etree.tostring(doc, xml_declaration=True, encoding="UTF-8")
 
 
 _schemas = {}

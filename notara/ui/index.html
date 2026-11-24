@@ -85,7 +85,7 @@ main{flex:1;overflow:auto;padding:0 32px 24px}
 .trilho{height:8px;border-radius:99px;background:var(--fill);margin:10px 0 8px;overflow:hidden;position:relative}
 .trilho i{position:absolute;inset:0 auto 0 0;border-radius:99px;background:var(--blue);transition:width .5s ease}
 .trilho i::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.45),transparent);animation:brilho 1.4s linear infinite}
-.trilho.fim i{background:var(--green)} .trilho.fim i::after{display:none}
+.trilho.fim i{background:var(--green)} .trilho.fim-erro i{background:var(--orange)} .trilho.fim i::after,.trilho.fim-erro i::after{display:none}
 @keyframes brilho{from{transform:translateX(-100%)}to{transform:translateX(100%)}}
 .progresso .agora{font-size:13px;color:var(--label2);display:flex;gap:8px;align-items:center;min-height:20px}
 .progresso .cont{display:flex;gap:16px;font-size:12.5px;color:var(--label2);margin-top:6px}
@@ -603,7 +603,7 @@ const app={
     else agora=`<div class="spin"></div><span>${this.verificando?'Verificando o acesso à Receita…':'Conectando à Receita…'}</span>`;
     return `<div class="progresso" role="status" aria-live="polite">
       <div class="topo"><b>${fim?(erro?'Envio concluído':'Notas emitidas'):'Emitindo notas'}</b><span class="s">${feitos} de ${total}</span><span class="pct">${pct}%</span></div>
-      <div class="trilho ${fim?'fim':''}" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><i style="width:${Math.max(pct,2)}%"></i></div>
+      <div class="trilho ${fim?(erro?'fim-erro':'fim'):''}" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><i style="width:${Math.max(pct,2)}%"></i></div>
       <div class="agora">${agora}</div>
       <div class="cont"><span><b>${ok}</b> emitidas</span>${erro?`<span><b style="color:var(--red)">${erro}</b> com erro</span>`:''}<span><b>${total-feitos}</b> na fila</span></div></div>`;
   },
