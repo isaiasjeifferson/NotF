@@ -77,6 +77,9 @@ main{flex:1;overflow:auto;padding:0 32px 24px}
 @keyframes r{to{transform:rotate(360deg)}}
 .link{color:var(--blue);font-weight:500;font-size:13px;padding:4px 8px;border-radius:6px;white-space:nowrap}
 .link:hover{background:var(--fill2)}
+.grupo{margin-top:14px}
+.gcab{position:sticky;top:0;z-index:3;display:flex;gap:10px;align-items:center;padding:10px 12px 8px;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:saturate(180%) blur(16px)}
+.gcab .t{font-size:13.5px}
 .acao{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;color:var(--label2);flex:none}
 .acao:hover{background:var(--fill);color:var(--blue)} .acao.red:hover{color:var(--red)}
 .check-n{width:22px;height:22px;border-radius:50%;border:1.5px solid var(--label3);display:grid;place-items:center;color:#fff;flex:none}
@@ -511,9 +514,11 @@ const app={
     const lista=this.fase==='lista';
     $('#lista').innerHTML=(lista?`<div class="gt" style="margin-top:4px"><span>${n.every(x=>this.sel(x))?'Todas selecionadas':`${n.filter(x=>this.sel(x)).length} de ${n.length} selecionadas · as outras ficam guardadas para depois`}</span>
         <button class="link" data-a="marcarTodas">${n.every(x=>this.sel(x))?'Desmarcar todas':'Marcar todas'}</button></div>`:'')
-      +[...grupos].map(([doc,idx])=>`
-      <div class="gt"><span>${esc(n[idx[0]].nome||'Buscando nome do cliente…')}</span><span class="num">${fmtDoc(doc)}</span></div>
-      <div class="group">${idx.map(i=>this.linha(i)).join('')}</div>`).join('')
+      +[...grupos].map(([doc,idx])=>{ const nome=n[idx[0]].nome||'Buscando nome do cliente…', sub=idx.reduce((a,i)=>a+n[i].valor,0);
+        return `<section class="grupo" aria-label="${esc(nome)}">
+        <div class="gcab"><span class="avatar" style="background:${this.cor(doc)};width:26px;height:26px;font-size:11px" aria-hidden="true">${esc(this.iniciais(nome))}</span>
+          <div class="main"><div class="t">${esc(nome)}</div><div class="s num">${fmtDoc(doc)} · ${plural(idx.length,'nota','notas')} · ${brl(sub)}</div></div></div>
+        <div class="group">${idx.map(i=>this.linha(i)).join('')}</div></section>`; }).join('')
       +(this.ignoradas.length?`<p class="hint" style="margin-top:12px">Ignoradas (marcadas no arquivo): ${esc(this.ignoradas.join(', '))}.</p>`:'');
     const marcadas=n.filter(x=>this.sel(x)), tot=marcadas.reduce((a,x)=>a+x.valor,0), ok=this.st.filter(s=>s?.status==='ok').length,
       falhas=this.st.filter(s=>s?.status==='erro').length, feitos=this.st.filter(s=>s&&!['aguardando','enviando'].includes(s.status)).length;
@@ -548,7 +553,7 @@ const app={
     if(this.fase==='pronto'&&!st) esq='<span class="badge" title="Não selecionada neste envio">Depois</span>';
     const acoes=edit?`<button class="acao" data-a="editar" data-i="${i}" title="Editar" aria-label="Editar nota de ${rot}">${ICON.lapis}</button>
       <button class="acao red" data-a="excluir" data-i="${i}" title="Excluir" aria-label="Excluir nota de ${rot}">${ICON.lixo}</button>`:'';
-    return `<div class="row ${lista&&!this.sel(x)?'apagada':''}">${esq}
+    return `<div class="row ${lista&&!this.sel(x)?'apagada':''}" title="${esc(x.nome)} · ${fmtDoc(x.cnpj)}">${esq}
         <div class="main"><div class="t">${rot}</div><div class="s">${esc(x.descricao)}</div>${extra}</div>${dir}${acoes}</div>`;
   },
   alternarSel(_,el){ const x=this.notas[+el.dataset.i]; x.sel=!this.sel(x); this.render(); },
@@ -862,7 +867,7 @@ const app={
   async atualizar(){ this.toast('Baixando atualização…'); const r=await api().instalar_atualizacao(); if(!r.ok) this.toast(r.erro); else this.toast('Instalando. O Notara abre de novo em instantes.'); },
 
   /* ================= Perfis de empresa ================= */
-  iniciais(n){ const p=String(n||'?').replace(/\b(LTDA|ME|EPP|EIRELI|S\/?A|SERVICOS?|COMERCIO|DE|DA|DO|E)\b/gi,' ').trim().split(/\s+/); return ((p[0]||'?')[0]+(p[1]?.[0]||'')).toUpperCase(); },
+  iniciais(n){ const p=String(n||'?').replace(/\b(LTDA|ME|EPP|EIRELI|S\/?A|SERVICOS?|COMERCIO|DE|DA|DO|DOS|DAS|E)\b/gi,' ').split(/[^A-Za-zÀ-ÿ0-9]+/).filter(Boolean); return ((p[0]||'?')[0]+(p[1]?.[0]||'')).toUpperCase(); },
   cor(cnpj){ const c=['#007AFF','#34C759','#FF9500','#AF52DE','#FF2D55','#5AC8FA','#5856D6','#FF6B00','#00A88F','#8E8E93']; return c[[...String(cnpj)].reduce((a,d)=>a+ +d,0)%c.length]; },
   av(e,g){ return `<span class="avatar ${g?'g':''}" style="background:${this.cor(e.cnpj)}" aria-hidden="true">${esc(this.iniciais(e.nome))}</span>`; },
   painelPerfis(){
