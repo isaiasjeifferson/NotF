@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+build/
+dist/
+installer/versao.txt
+.pytest_cache/
+*.pfx
+*.p12
+installer/MicrosoftEdgeWebview2Setup.exe

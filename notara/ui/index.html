@@ -1,0 +1,882 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; connect-src 'none'">
+<title>Notara</title>
+<style>
+:root{
+  --bg:#F5F5F7;--card:#FFF;--label:#1D1D1F;--label2:#6E6E73;--label3:#AEAEB2;
+  --sep:rgba(60,60,67,.13);--fill:rgba(120,120,128,.12);--fill2:rgba(120,120,128,.07);
+  --blue:#007AFF;--green:#34C759;--red:#FF3B30;--orange:#FF9500;--scrim:rgba(0,0,0,.25);
+  --shadow:0 1px 2px rgba(0,0,0,.04),0 4px 16px rgba(0,0,0,.04);--r:12px;
+  font-family:"Segoe UI Variable Text","Segoe UI",-apple-system,BlinkMacSystemFont,system-ui,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#000;--card:#1C1C1E;--label:#F5F5F7;--label2:#98989D;--label3:#636366;
+  --sep:rgba(84,84,88,.55);--fill:rgba(120,120,128,.24);--fill2:rgba(120,120,128,.14);
+  --blue:#0A84FF;--green:#30D158;--red:#FF453A;--orange:#FF9F0A;--scrim:rgba(0,0,0,.6);--shadow:none}
+  .sheet{background:#1C1C1E!important}.sheet .group{background:#2C2C2E}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{background:var(--bg);color:var(--label);font-size:14px;line-height:1.4;-webkit-font-smoothing:antialiased;display:flex;flex-direction:column;overflow:hidden;user-select:none}
+button{font:inherit;color:inherit;border:0;background:none;cursor:default}
+input,textarea,select{font:inherit;color:var(--label);user-select:text}
+:focus-visible{outline:3px solid color-mix(in srgb,var(--blue) 45%,transparent);outline-offset:1px;border-radius:6px}
+.num{font-variant-numeric:tabular-nums}
+.spacer{flex:1}
+[hidden]{display:none!important}
+
+header{padding:20px 32px 12px;display:flex;align-items:flex-end;gap:14px}
+h1{font-size:28px;font-weight:700;letter-spacing:-.02em}
+.sub{color:var(--label2);font-size:13px;margin-top:2px;display:flex;gap:8px;align-items:center}
+.empresa-btn{color:var(--label2);font-size:13px;display:inline-flex;gap:5px;align-items:center;padding:2px 6px;margin-left:-6px;border-radius:6px;max-width:420px}
+.empresa-btn span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.empresa-btn:hover{background:var(--fill2)}
+.badge{font-size:11px;font-weight:600;padding:2px 8px;border-radius:99px;background:var(--fill);color:var(--label2);white-space:nowrap}
+.badge.prod{background:rgba(52,199,89,.15);color:var(--green)}
+.badge.teste{background:rgba(255,149,0,.15);color:var(--orange)}
+.badge.cancel{background:rgba(255,59,48,.12);color:var(--red)}
+.seg{display:inline-flex;background:var(--fill);border-radius:9px;padding:2px}
+.seg button{padding:5px 15px;border-radius:7px;font-size:13px;font-weight:500}
+.seg button[aria-selected=true],.seg button[aria-checked=true]{background:var(--card);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+@media (prefers-color-scheme:dark){.seg button[aria-selected=true],.seg button[aria-checked=true]{background:#636366}}
+.seg button:disabled{opacity:.35}
+.icon-btn{width:32px;height:32px;border-radius:8px;display:grid;place-items:center;color:var(--label2)}
+.icon-btn:hover{background:var(--fill2)}
+
+main{flex:1;overflow:auto;padding:0 32px 24px}
+.view{display:none;max-width:860px;margin:0 auto}
+.view.on{display:block;animation:in .2s ease}
+@keyframes in{from{opacity:0;transform:translateY(4px)}}
+
+.banner{display:flex;gap:12px;align-items:center;padding:10px 14px;border-radius:var(--r);margin:4px 0 8px;font-size:13px}
+.banner.warn{background:rgba(255,149,0,.12)} .banner.info{background:rgba(0,122,255,.10)} .banner.erro{background:rgba(255,59,48,.10)}
+.banner .btn{padding:5px 12px;font-size:13px}
+.group{background:var(--card);border-radius:var(--r);box-shadow:var(--shadow);overflow:hidden}
+.gt{font-size:13px;color:var(--label2);margin:20px 16px 6px;display:flex;justify-content:space-between;gap:12px}
+.row{display:flex;align-items:center;gap:14px;padding:11px 16px;position:relative;min-height:56px;width:100%;text-align:left}
+.row+.row::before,.field+.field::before{content:"";position:absolute;top:0;left:16px;right:0;border-top:1px solid var(--sep)}
+.row.click:hover{background:var(--fill2)}
+.main{flex:1;min-width:0}
+.t{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;gap:8px;align-items:center}
+.s{color:var(--label2);font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.v{font-weight:600;white-space:nowrap}
+.del{opacity:0;color:var(--label3);width:28px;height:28px;border-radius:50%;display:grid;place-items:center;flex:none}
+.row:hover .del,.del:focus-visible{opacity:1} .del:hover{color:var(--red);background:var(--fill2)}
+.st{width:20px;height:20px;flex:none;display:grid;place-items:center}
+.st.ok{color:var(--green)} .st.erro{color:var(--red)} .st.incerto{color:var(--orange)}
+.err{color:var(--red);font-size:12.5px;white-space:normal} .err.warn{color:var(--orange)}
+.err small{color:var(--label2);margin-left:6px}
+.spin{width:16px;height:16px;border:2px solid var(--fill);border-top-color:var(--blue);border-radius:50%;animation:r .7s linear infinite;flex:none}
+@keyframes r{to{transform:rotate(360deg)}}
+.link{color:var(--blue);font-weight:500;font-size:13px;padding:4px 8px;border-radius:6px;white-space:nowrap}
+.link:hover{background:var(--fill2)}
+.more{width:30px;height:28px;border-radius:7px;color:var(--label2);display:grid;place-items:center;flex:none}
+.more:hover{background:var(--fill)}
+
+.empty{margin-top:7vh;text-align:center;padding:48px 24px;border:1.5px dashed var(--sep);border-radius:18px;transition:.2s}
+.drag #vazio{border-color:var(--blue);background:rgba(0,122,255,.05)}
+.empty svg{color:var(--label3);margin-bottom:14px}
+.empty h2{font-size:19px;font-weight:600}
+.empty p{color:var(--label2);margin:6px 0 22px}
+.actions{display:flex;gap:10px;justify-content:center}
+kbd{font:inherit;font-size:12px;padding:1px 6px;border-radius:5px;background:var(--fill);color:var(--label2)}
+
+.btn{padding:8px 18px;border-radius:9px;font-weight:600;background:var(--fill);color:var(--blue);white-space:nowrap}
+.btn:hover{filter:brightness(.97)}
+.btn.primary{background:var(--blue);color:#fff}
+.btn.primary:hover{filter:brightness(1.08)}
+.btn.red{background:var(--red);color:#fff}
+.btn.big{padding:11px 22px;font-size:15px;border-radius:11px}
+.btn:disabled{opacity:.4;pointer-events:none}
+
+footer{display:none;padding:12px 32px;background:color-mix(in srgb,var(--bg) 82%,transparent);backdrop-filter:saturate(180%) blur(20px);border-top:1px solid var(--sep)}
+footer.on{display:block}
+footer .in{max-width:860px;margin:0 auto;display:flex;align-items:center;gap:12px}
+.tot{font-size:13px;color:var(--label2);min-width:170px} .tot b{color:var(--label);font-size:17px;display:block}
+.barra{height:3px;border-radius:2px;background:var(--fill);margin-top:6px;overflow:hidden} .barra i{display:block;height:100%;background:var(--blue);transition:width .3s}
+
+.field{display:flex;align-items:center;gap:12px;padding:0 16px;min-height:46px;position:relative;width:100%;text-align:left}
+.field>label,.field>.lbl{width:170px;flex:none}
+.field input,.field textarea,.field select{flex:1;border:0;outline:0;background:none;text-align:right;padding:12px 0;min-width:0}
+.field select{text-align-last:right;appearance:none;padding-right:2px}
+.field textarea{text-align:left;resize:none;min-height:64px}
+.field .val{flex:1;text-align:right;color:var(--label2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.field.col{flex-direction:column;align-items:stretch;gap:0;padding-top:10px}
+.field.col>label{width:auto;font-size:12.5px;color:var(--label2)}
+.field.col input{text-align:left}
+.field.click:hover{background:var(--fill2)}
+.field.invalido{box-shadow:inset 3px 0 0 var(--red)}
+.field.invalido label{color:var(--red)}
+.unit{color:var(--label2)}
+.hint{font-size:12px;color:var(--label2);margin:6px 16px 0;line-height:1.45}
+.hint.erro{color:var(--red)}
+.prev{font-size:13px;color:var(--label2);padding:10px 16px;border-top:1px solid var(--sep);background:var(--fill2)}
+.prev b{color:var(--label);font-weight:500}
+.pills{display:flex;gap:6px;padding:0 16px 10px}
+.pills button{font-size:12px;padding:3px 10px;border-radius:99px;background:var(--fill);color:var(--blue);font-weight:600}
+.switch{width:44px;height:26px;border-radius:99px;background:var(--fill);position:relative;transition:.2s;flex:none}
+.switch::after{content:"";position:absolute;top:2px;left:2px;width:22px;height:22px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:.2s}
+.switch[aria-checked=true]{background:var(--green)} .switch[aria-checked=true]::after{left:20px}
+details summary{list-style:none;color:var(--label2);font-size:13px;margin:20px 16px 6px;cursor:default}
+details summary::before{content:"›";display:inline-block;margin-right:6px;transition:.2s} details[open] summary::before{transform:rotate(90deg)}
+
+/* Cadastro */
+#setup{position:fixed;inset:0;background:var(--bg);z-index:5;display:flex;flex-direction:column;align-items:center;overflow:auto}
+.setup-in{width:min(560px,92vw);padding:40px 0 32px}
+.etapa{text-align:center;font-size:12px;color:var(--label2);margin-bottom:8px;font-weight:600;letter-spacing:.02em}
+.dots{display:flex;gap:6px;justify-content:center;margin-bottom:22px}
+.dots i{width:24px;height:4px;border-radius:2px;background:var(--fill);transition:.3s}
+.dots i.on{background:var(--blue)}
+.setup-in h2{font-size:26px;font-weight:700;letter-spacing:-.02em;text-align:center}
+.setup-in .lead{color:var(--label2);text-align:center;margin:6px auto 22px;max-width:460px}
+.setup-nav{display:flex;gap:10px;margin-top:26px}
+.drop{border:1.5px dashed var(--sep);border-radius:var(--r);padding:24px;text-align:center;color:var(--label2);transition:.2s;background:var(--card);width:100%}
+.drop.on,.drop:hover{border-color:var(--blue);color:var(--blue)}
+.drop b{display:block;color:var(--label);font-weight:600;margin-bottom:2px}
+.check{display:flex;gap:12px;align-items:center;padding:14px 16px}
+.check>svg{color:var(--green);flex:none}
+
+/* Folhas */
+.scrim{position:fixed;inset:0;background:var(--scrim);display:none;align-items:center;justify-content:center;z-index:9}
+.scrim.on{display:flex;animation:fade .18s}
+#scrim2{z-index:12}
+@keyframes fade{from{opacity:0}}
+.sheet{background:var(--bg);width:min(540px,92vw);max-height:88vh;display:flex;flex-direction:column;border-radius:14px;box-shadow:0 24px 64px rgba(0,0,0,.28);animation:pop .22s cubic-bezier(.2,.9,.3,1.1)}
+#sheet2{width:min(380px,90vw)}
+@keyframes pop{from{transform:scale(.96);opacity:0}}
+.sh{padding:16px 16px 6px;text-align:center}
+.sh h3{font-size:15px;font-weight:600}
+.sh p{color:var(--label2);font-size:13px;margin-top:4px}
+.sb{padding:0 16px 8px;overflow:auto}
+.sf{display:flex;gap:10px;justify-content:flex-end;padding:12px 16px 16px;border-top:1px solid var(--sep)}
+.tabs{display:flex;justify-content:center;margin:2px 0 4px}
+
+.toast{position:fixed;bottom:86px;left:50%;transform:translateX(-50%) translateY(16px);opacity:0;background:rgba(30,30,30,.94);color:#fff;padding:10px 16px;border-radius:99px;font-size:13px;transition:.3s;z-index:20;max-width:80vw;display:flex;gap:12px;align-items:center;pointer-events:none}
+.toast.on{opacity:1;transform:translateX(-50%);pointer-events:auto}
+.toast button{color:#64D2FF;font-weight:600}
+.busca-cli{position:relative;margin:2px 0 10px}
+.busca-cli input{width:100%;border:0;outline:0;background:var(--card);box-shadow:var(--shadow);border-radius:10px;padding:10px 14px 10px 36px;font-size:14px}
+.busca-cli svg{position:absolute;left:12px;top:12px;color:var(--label3)}
+.resultados{position:absolute;left:0;right:0;top:calc(100% + 6px);background:var(--card);border-radius:12px;box-shadow:0 12px 40px rgba(0,0,0,.18);z-index:8;max-height:360px;overflow:auto;padding:6px;border:1px solid var(--sep)}
+.resultados .cli{padding:8px 10px 4px;font-size:12px;color:var(--label2);display:flex;justify-content:space-between;gap:8px}
+.resultados button{display:flex;width:100%;text-align:left;padding:8px 10px;border-radius:8px;gap:10px;align-items:center}
+.resultados button:hover,.resultados button.sel{background:var(--blue);color:#fff}
+.resultados button:hover .s,.resultados button.sel .s{color:rgba(255,255,255,.8)}
+.resultados .todas{color:var(--blue);font-weight:600}
+.search{width:100%;border:0;outline:0;background:var(--fill);border-radius:9px;padding:8px 12px;margin-top:4px}
+.filtro{display:flex;justify-content:flex-end;margin-top:8px}
+.menu{position:fixed;background:var(--card);border-radius:10px;box-shadow:0 10px 40px rgba(0,0,0,.22);padding:5px;z-index:15;min-width:230px;border:1px solid var(--sep)}
+.menu button{display:flex;width:100%;padding:7px 10px;border-radius:6px;text-align:left;gap:8px;align-items:center}
+.menu button:hover,.menu button:focus{background:var(--blue);color:#fff;outline:0}
+.menu button.red{color:var(--red)} .menu button.red:hover,.menu button.red:focus{background:var(--red);color:#fff}
+.menu .ck{width:14px;display:inline-grid;place-items:center}
+.menu hr{border:0;border-top:1px solid var(--sep);margin:4px 6px}
+</style>
+</head>
+<body>
+
+<section id="setup" hidden aria-live="polite">
+  <div class="setup-in">
+    <div class="etapa" id="etapa"></div>
+    <div class="dots" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+    <div id="passo"></div>
+  </div>
+</section>
+
+<header>
+  <div style="min-width:0">
+    <h1 id="titulo">Emitir</h1>
+    <div class="sub">
+      <button class="empresa-btn" id="empresa-btn" aria-haspopup="menu" data-a="menuEmpresas"></button>
+      <span id="amb" class="badge"></span>
+    </div>
+  </div>
+  <div class="spacer"></div>
+  <div class="seg" role="tablist" id="abas">
+    <button role="tab" aria-selected="true" data-v="emitir">Emitir</button>
+    <button role="tab" aria-selected="false" data-v="historico">Histórico</button>
+  </div>
+  <button class="icon-btn" title="Ajustes" aria-label="Ajustes" data-a="ajustes">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1A1.7 1.7 0 0 0 9 19.4a1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1A1.7 1.7 0 0 0 4.6 9a1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+  </button>
+</header>
+
+<main>
+  <section class="view on" id="v-emitir" role="tabpanel">
+    <div id="avisos"></div>
+    <div class="busca-cli" id="busca-cli" hidden>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input id="q-cli" placeholder="Buscar cliente salvo e adicionar à lista" autocomplete="off" role="combobox" aria-expanded="false" aria-controls="res-cli" aria-label="Buscar cliente salvo">
+      <div class="resultados" id="res-cli" role="listbox" hidden></div>
+    </div>
+    <div class="empty" id="vazio">
+      <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M12 18v-6M9 15h6"/></svg>
+      <h2>Nenhuma nota na lista</h2>
+      <p>Busque um cliente salvo, arraste um PDF, cole uma lista com <kbd>Ctrl</kbd>+<kbd>V</kbd> ou adicione à mão.</p>
+      <div class="actions">
+        <button class="btn" data-a="editar">Adicionar nota</button>
+        <button class="btn primary" data-a="escolherPdf">Importar PDF</button>
+      </div>
+    </div>
+    <div id="lista"></div>
+  </section>
+  <section class="view" id="v-historico" role="tabpanel">
+    <input class="search" id="busca" placeholder="Buscar cliente, unidade ou número" aria-label="Buscar no histórico">
+    <div id="hist"></div>
+  </section>
+</main>
+
+<footer id="rodape"><div class="in">
+  <div class="tot"><span id="qtd"></span><b class="num" id="total"></b><div class="barra" id="barra" hidden><i></i></div></div>
+  <div class="spacer"></div>
+  <button class="btn" id="b-sec"></button>
+  <button class="btn primary" id="b-pri"></button>
+</div></footer>
+
+<div class="scrim" id="scrim"><div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-t"></div></div>
+<div class="scrim" id="scrim2"><div class="sheet" id="sheet2" role="alertdialog" aria-modal="true" aria-labelledby="sheet2-t"></div></div>
+<div class="toast" id="toast" role="status"><span id="toast-t"></span><button id="toast-b" hidden></button></div>
+<input type="file" id="arquivo" hidden>
+
+<script>
+'use strict';
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const api=()=>window.pywebview.api;
+const brl=v=>(+v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const dig=s=>String(s||'').replace(/\D/g,'');
+const fmtDoc=d=>(d=dig(d)).length===14?d.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/,'$1.$2.$3/$4-$5'):d.length===11?d.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/,'$1.$2.$3-$4'):d;
+const parseValor=s=>{s=String(s).replace(/[^\d,.-]/g,'');if(s.includes(','))s=s.replace(/\./g,'').replace(',','.');return Math.round((parseFloat(s)||0)*100)/100};
+const fmtNum=v=>(+v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+const plural=(n,a,b)=>`${n} ${n===1?a:b}`;
+const MESES=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+const aplicarModelo=(m,u)=>{const d=new Date();return m.replaceAll('{mes}',MESES[d.getMonth()]).replaceAll('{ano}',d.getFullYear()).replaceAll('{unidade}',u).replace(/(\s*-\s*)+$/,'')};
+const lerArquivo=aceita=>new Promise(res=>{const i=$('#arquivo');i.accept=aceita;i.value='';
+  i.onchange=()=>{const f=i.files[0];if(!f)return res(null);const r=new FileReader();r.onload=()=>res({nome:f.name,b64:r.result.split(',')[1]});r.readAsDataURL(f)};i.click()});
+const ICON={
+  ok:'<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm-1.2 14.2-4-4 1.4-1.4 2.6 2.6 5.6-5.6 1.4 1.4z"/></svg>',
+  erro:'<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm1 15h-2v-2h2zm0-4h-2V7h2z"/></svg>',
+  x:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>',
+  seta:'<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>',
+  mais:'<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>',
+  check:'<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg>'};
+const sw=(id,on,label)=>`<button class="switch" id="${id}" role="switch" aria-checked="${!!on}" aria-labelledby="${id}-l"></button>`;
+const swOn=id=>$('#'+id).getAttribute('aria-checked')==='true';
+const segBtns=(id,opts,atual,dis={})=>`<div class="seg" role="radiogroup" id="${id}">${opts.map(([v,t])=>`<button role="radio" data-v="${v}" aria-checked="${String(atual)===String(v)}" ${dis[v]?'disabled':''}>${t}</button>`).join('')}</div>`;
+const segVal=id=>$(`#${id} [aria-checked=true]`)?.dataset.v;
+
+const app={
+  s:null, notas:[], st:[], fase:'lista', ignoradas:[], verTestes:false,
+
+  async init(){
+    this.s=await api().estado();
+    if(!this.s.empresa) return this.cadastro();
+    this.pronto();
+    const up=await api().verificar_atualizacao(); if(up){ this.update=up; this.avisos(); }
+  },
+  pronto(){ $('#setup').hidden=true; this.cabecalho(); this.avisos(); this.render(); this.renderHistorico(); this.carregarClientes(); },
+  async carregarClientes(){ this.clis=await api().clientes_salvos(); $('#busca-cli').hidden=!this.clis.length; },
+
+  /* ================= Clientes salvos ================= */
+  buscarCli(){
+    const q=$('#q-cli').value.trim().toLowerCase(), box=$('#res-cli'), qd=dig(q);
+    if(!q){ box.hidden=true; $('#q-cli').setAttribute('aria-expanded','false'); return; }
+    const achados=this.clis.map(c=>{ const nomeOk=c.nome.toLowerCase().includes(q)||(qd.length>=3&&c.cnpj.includes(qd));
+      const us=c.unidades.filter(u=>nomeOk||u.nome.toLowerCase().includes(q)); return (nomeOk||us.length)?{...c,us:nomeOk?c.unidades:us}:null; }).filter(Boolean).slice(0,8);
+    this._res=[]; let html='';
+    for(const c of achados){
+      html+=`<div class="cli"><span>${esc(c.nome)}</span><span class="num">${fmtDoc(c.cnpj)}</span></div>`;
+      const us=c.us.length?c.us:[{nome:'',valor:0}];
+      us.forEach(u=>{ this._res.push({c,u}); html+=`<button role="option" data-r="${this._res.length-1}"><div class="main"><div class="t">${esc(u.nome||c.nome)}</div></div>${u.valor?`<span class="s num">último ${brl(u.valor)}</span>`:''}</button>`; });
+      if(c.us.length>1){ this._res.push({c,todas:c.us}); html+=`<button role="option" class="todas" data-r="${this._res.length-1}">Adicionar as ${c.us.length} unidades</button>`; }
+    }
+    box.innerHTML=html||`<div class="cli">Nenhum cliente salvo com “${esc(q)}”. Clientes são salvos ao emitir a primeira nota.</div>`;
+    box.hidden=false; $('#q-cli').setAttribute('aria-expanded','true'); this._sel=0; this.marcarSel();
+  },
+  marcarSel(){ $$('#res-cli button').forEach((b,i)=>b.classList.toggle('sel',i===this._sel)); $$('#res-cli button')[this._sel]?.scrollIntoView({block:'nearest'}); },
+  async escolherCli(r){
+    const x=this._res[r]; if(!x) return;
+    $('#q-cli').value=''; this.buscarCli();
+    if(this.fase!=='lista') this.reset();
+    const nota=async u=>({cnpj:x.c.cnpj,nome:x.c.nome,unidade:u.nome,valor:u.valor||0,descricao:await api().descricao_cliente(x.c.cnpj,u.nome)});
+    if(x.todas){
+      for(const u of x.todas) this.notas.push(await nota(u));
+      this.aba('emitir'); this.render(); return this.toast(`${plural(x.todas.length,'unidade adicionada','unidades adicionadas')} com o último valor. Clique para ajustar.`);
+    }
+    this.editar(null,null,await nota(x.u));
+  },
+
+  cabecalho(){
+    const e=this.s.empresa, p=e.ambiente==='producao';
+    $('#empresa-btn').innerHTML=`<span>${esc(e.apelido||e.nome)}</span> ${ICON.seta}`;
+    $('#empresa-btn').title=e.nome;
+    const a=$('#amb'); a.textContent=p?'Produção':'Teste'; a.className='badge '+(p?'prod':'teste');
+    a.title=p?'As notas têm validade fiscal':'As notas não têm validade fiscal';
+  },
+  avisos(){
+    const e=this.s.empresa, c=this.s.certificado||{}, out=[];
+    if(this.update) out.push(`<div class="banner info"><span class="spacer">Notara ${esc(this.update.versao)} disponível. O programa fecha e abre de novo sozinho.</span><button class="btn primary" data-a="atualizar">Atualizar</button></div>`);
+    if(c.erro) out.push(`<div class="banner erro"><span class="spacer">${esc(c.erro)}</span><button class="btn" data-a="trocarCert">Importar certificado</button></div>`);
+    else if(c.dias!==undefined&&c.dias<0) out.push(`<div class="banner erro"><span class="spacer">O certificado venceu em ${esc(c.validade)}. Não é possível emitir.</span><button class="btn" data-a="trocarCert">Trocar certificado</button></div>`);
+    else if(c.dias!==undefined&&c.dias<30) out.push(`<div class="banner warn"><span class="spacer">O certificado vence em ${esc(c.validade)}. Depois disso não será possível emitir.</span><button class="btn" data-a="trocarCert">Trocar certificado</button></div>`);
+    if(e.ambiente==='teste'&&e.teste_ok) out.push(`<div class="banner info"><span class="spacer">Teste concluído. Pronto para emitir de verdade?</span><button class="btn primary" data-a="ligarProducao">Ligar produção</button></div>`);
+    if(this.erroEnvio) out.push(`<div class="banner erro"><span class="spacer">Não foi possível enviar: ${esc(this.erroEnvio)}</span><button class="btn" data-a="emitirTudo">Tentar de novo</button></div>`);
+    $('#avisos').innerHTML=out.join('');
+  },
+
+  aba(v){
+    $$('#abas button').forEach(b=>b.setAttribute('aria-selected',b.dataset.v===v));
+    $$('.view').forEach(x=>x.classList.toggle('on',x.id==='v-'+v));
+    $('#titulo').textContent=v==='emitir'?'Emitir':'Histórico';
+    this.rodape();
+  },
+  rodape(){ $('#rodape').classList.toggle('on',$('#v-emitir').classList.contains('on')&&this.notas.length>0); },
+
+  /* ================= Cadastro ================= */
+  cad:{}, passo:0,
+  cadastro(){ this.cad={servico:{},guardar:true}; this.passo=0; $('#setup').hidden=false; this.renderPasso(); },
+  renderPasso(){
+    const c=this.cad;
+    $('#etapa').textContent=`ETAPA ${this.passo+1} DE 4`;
+    $$('.dots i').forEach((d,i)=>d.classList.toggle('on',i<=this.passo));
+    const voltar=`<button class="btn" data-a="irPasso" data-n="-1">Voltar</button>`;
+    const P=[
+      ()=>`<h2>Certificado da empresa</h2>
+        <p class="lead">É ele que autoriza a emissão na Receita. Use o certificado A1 que a certificadora enviou (arquivo .pfx ou .p12, costuma estar em Downloads).</p>
+        <button class="drop ${c.arq?'on':''}" data-a="escolherPfx"><b>${c.arq?esc(c.arq.nome):'Escolher arquivo do certificado'}</b>${c.arq?'Clique para trocar':'.pfx ou .p12'}</button>
+        <div class="group" style="margin-top:14px">
+          <div class="field" id="fc-senha"><label for="c-senha">Senha</label><input id="c-senha" type="password" placeholder="Senha do certificado" autocomplete="off"></div>
+          <div class="field"><span class="lbl" id="c-guardar-l">Guardar a senha</span><span class="spacer"></span>${sw('c-guardar',c.guardar)}</div>
+        </div>
+        <p class="hint">Desligado, o Notara pede a senha a cada envio. Indicado para computadores compartilhados.</p>
+        <div class="setup-nav">${this.s.empresas.length?'<button class="btn" data-a="sairCadastro">Cancelar</button>':''}<span class="spacer"></span>
+          <button class="btn primary big" id="ok" data-a="lerCert">Continuar</button></div>`,
+      ()=>`<h2>Dados da empresa</h2>
+        <div class="group" style="margin-bottom:6px"><div class="check">${ICON.ok}<div><b>${esc(c.cert.nome)}</b><div class="s">CNPJ ${fmtDoc(c.cert.cnpj)} · certificado válido até ${esc(c.cert.validade)}</div></div></div></div>
+        <p class="lead" style="margin-top:12px">Preenchidos pelo CNPJ. Confira e ajuste se precisar.</p>
+        <div class="group">
+          <div class="field" id="fe-nome"><label for="e-nome">Razão social</label><input id="e-nome" value="${esc(c.empresa.nome)}"></div>
+          <div class="field"><label for="e-apelido">Nome curto</label><input id="e-apelido" value="${esc(c.empresa.apelido||'')}" placeholder="Opcional · aparece no topo"></div>
+          <div class="field"><label for="e-mun">Município</label><input id="e-mun" value="${esc(c.empresa.municipio||'')}" placeholder="Cidade/UF"></div>
+          <div class="field" id="fe-ibge"><label for="e-ibge">Código do município</label><input id="e-ibge" class="num" value="${esc(c.empresa.municipio_ibge||'')}" placeholder="7 números" maxlength="7"></div>
+        </div>
+        <p class="hint">${c.empresa.municipio_ibge?'Código do IBGE, preenchido pelo CNPJ.':'Não veio pelo CNPJ. Busque “código IBGE '+esc(c.empresa.municipio||'sua cidade')+'” na internet (são 7 números).'}</p>
+        <div class="gt">Regime tributário</div>
+        <div class="group">
+          <div class="field"><span class="lbl">Regime</span><span class="spacer"></span>${segBtns('e-reg',[[3,'Simples Nacional'],[2,'MEI'],[1,'Outro']],c.empresa.op_simples??3)}</div>
+          <div class="field" id="fe-aliq"><label for="e-aliq">Alíquota do Simples</label><input id="e-aliq" class="num" placeholder="0,00" value="${c.empresa.aliquota_simples?fmtNum(c.empresa.aliquota_simples):''}"><span class="unit">%</span></div>
+        </div>
+        <p class="hint" id="e-aliq-h">Percentual efetivo da sua faixa no Simples. Está no extrato do PGDAS ou com a contabilidade.</p>
+        <div class="setup-nav">${voltar}<span class="spacer"></span><button class="btn primary big" data-a="salvarPasso2">Continuar</button></div>`,
+      ()=>`<h2>Serviço que você presta</h2>
+        <p class="lead">Copie os códigos da última nota emitida pelo site da prefeitura ou pelo Emissor Nacional. Se não tiver, peça à contabilidade.</p>
+        <div class="group">
+          <div class="field" id="fs-nac"><label for="s-nac">Código do serviço</label><input id="s-nac" class="num" placeholder="00.00.00" value="${esc(c.servico.cod_nacional||'')}"></div>
+          <div class="field"><span class="lbl" id="s-ret-l">ISS retido pelo cliente</span><span class="spacer"></span>${sw('s-ret',c.servico.iss_retido)}</div>
+        </div>
+        <p class="hint">O código do serviço tem 6 números (ex.: 14.10.01) e aparece na nota como “Código de Tributação Nacional”. Ligue o ISS retido só se o cliente desconta o ISS do pagamento.</p>
+        <details ${c.servico.cod_municipal||c.servico.nbs?'open':''}><summary>Códigos opcionais</summary>
+          <div class="group">
+            <div class="field" id="fs-mun"><label for="s-mun">Código municipal</label><input id="s-mun" class="num" placeholder="3 números" value="${esc(c.servico.cod_municipal||'')}"></div>
+            <div class="field" id="fs-nbs"><label for="s-nbs">Código NBS</label><input id="s-nbs" class="num" placeholder="9 números" value="${esc(c.servico.nbs||'')}"></div>
+          </div>
+          <p class="hint">Na nota antiga: “Código Complementar Municipal” (os 3 últimos números) e “Item da NBS”.</p>
+        </details>
+        <div class="gt">Descrição das notas</div>
+        <div class="group">
+          <div class="field col" id="fs-modelo"><label for="s-modelo">Modelo</label><input id="s-modelo" value="${esc(c.modelo||'Prestação de serviço - {mes} de {ano} - {unidade}')}"></div>
+          <div class="pills"><button data-a="inserir" data-t="{mes}" data-alvo="s-modelo">+ Mês</button><button data-a="inserir" data-t="{ano}" data-alvo="s-modelo">+ Ano</button><button data-a="inserir" data-t="{unidade}" data-alvo="s-modelo">+ Unidade</button></div>
+          <div class="prev" id="s-modelo-prev"></div>
+        </div>
+        <div class="setup-nav">${voltar}<span class="spacer"></span><button class="btn primary big" data-a="salvarPasso3">Continuar</button></div>`,
+      ()=>`<h2>Tudo pronto</h2>
+        <p class="lead">Conferindo a conexão com a Receita no ambiente de teste.</p>
+        <div class="group"><div class="check" id="g-con">${c.con||'<div class="spin"></div><span class="s">Testando conexão…</span>'}</div></div>
+        <div class="gt">Outros computadores</div>
+        <div class="group"><button class="field click" data-a="pastaCadastro"><span class="lbl">Pasta compartilhada</span><div class="val">${esc(c.compartilhada||'Não usar')}</div></button></div>
+        <p class="hint">Opcional. Com uma pasta na rede, OneDrive ou Google Drive, os computadores da empresa dividem histórico, clientes e numeração. Se ela já tiver esta empresa, a configuração é aproveitada.</p>
+        <div class="setup-nav">${voltar}<span class="spacer"></span><button class="btn primary big" id="ok" data-a="concluir" ${c.salvo?'':'disabled'}>Começar a emitir</button></div>`,
+    ];
+    $('#passo').innerHTML=P[this.passo]();
+    if(this.passo===0){ const s=$('#c-senha'); s.onkeydown=e=>{if(e.key==='Enter')this.lerCert()}; s.focus(); }
+    if(this.passo===1){ const upd=()=>{const v=segVal('e-reg');$('#fe-aliq').hidden=$('#e-aliq-h').hidden=v!=='3'}; this.segs(upd); upd(); $('#e-nome').focus(); }
+    if(this.passo===2){ this.previa('s-modelo'); $('#s-nac').focus(); }
+    if(this.passo===3&&!c.salvo) this.salvarCadastro();
+  },
+  irPasso(d){ this.passo=Math.max(0,Math.min(3,this.passo+(+d))); this.renderPasso(); },
+  sairCadastro(){ api().descartar_cadastro(); this.cad={}; $('#setup').hidden=true; },
+  async escolherPfx(){ const f=await lerArquivo('.pfx,.p12'); if(f){ this.cad.arq=f; this.cad.cert=null; this.renderPasso(); } },
+  async lerCert(){
+    const c=this.cad; c.guardar=swOn('c-guardar');
+    if(!c.arq) return this.toast('Escolha o arquivo do certificado.');
+    const senha=$('#c-senha').value; if(!senha) return this.invalido('fc-senha','Digite a senha do certificado.');
+    this.carregando('#ok','Verificando…');
+    const r=await api().ler_certificado(c.arq.b64,senha);
+    if(!r.ok){ this.renderPasso(); $('#c-senha').value=senha; return this.invalido('fc-senha',r.erro); }
+    c.cert=r.certificado; c.empresa=r.empresa; c.salvo=false; c.con=null; this.irPasso(1);
+  },
+  salvarPasso2(){
+    const e=this.cad.empresa, reg=+segVal('e-reg');
+    Object.assign(e,{nome:$('#e-nome').value.trim(),apelido:$('#e-apelido').value.trim(),municipio:$('#e-mun').value.trim(),municipio_ibge:dig($('#e-ibge').value),op_simples:reg,aliquota_simples:reg===3?parseValor($('#e-aliq').value):0});
+    if(!e.nome) return this.invalido('fe-nome','Informe a razão social.');
+    if(e.municipio_ibge.length!==7) return this.invalido('fe-ibge','O código do município tem 7 números.');
+    if(reg===3&&!(e.aliquota_simples>0&&e.aliquota_simples<100)) return this.invalido('fe-aliq','Informe a alíquota do Simples.');
+    this.irPasso(1);
+  },
+  salvarPasso3(){
+    const s=this.cad.servico;
+    Object.assign(s,{cod_nacional:$('#s-nac').value.trim(),cod_municipal:$('#s-mun').value.trim(),nbs:$('#s-nbs').value.trim(),iss_retido:swOn('s-ret')});
+    this.cad.modelo=$('#s-modelo').value.trim();
+    if(dig(s.cod_nacional).length!==6) return this.invalido('fs-nac','O código do serviço tem 6 números. Ex.: 14.10.01');
+    if(s.cod_municipal&&dig(s.cod_municipal).length!==3){ $('details').open=true; return this.invalido('fs-mun','O código municipal tem 3 números.'); }
+    if(s.nbs&&dig(s.nbs).length!==9){ $('details').open=true; return this.invalido('fs-nbs','O código NBS tem 9 números.'); }
+    if(!this.cad.modelo) return this.invalido('fs-modelo','Informe o modelo da descrição.');
+    this.irPasso(1);
+  },
+  async salvarCadastro(){
+    const c=this.cad;
+    const r=await api().salvar_empresa({cnpj:c.cert.cnpj,...c.empresa,servico:c.servico,descricao_modelo:c.modelo,pedir_senha:!c.guardar,pasta_compartilhada:c.compartilhada||''},true,null);
+    if(!r.ok){ this.passo=r.erro.includes('serviço')||r.erro.includes('NBS')||r.erro.includes('municipal')?2:1; this.renderPasso(); return this.toast(r.erro); }
+    this.s=r.estado; c.salvo=true; c.senhaSessao=c.guardar?null:$('#c-senha')?.value;
+    const t=await api().testar_conexao(c.guardar?null:c.senhaSessao||null,'teste');
+    c.con=t.ok?`${ICON.ok}<div><b>Conectado à Receita</b><div class="s">${t.municipio_ativo?'Seu município usa o Emissor Nacional.':'Conexão ok. Confira com a contabilidade se o seu município já usa o Emissor Nacional.'}</div></div>`
+      :`<span class="st erro">${ICON.erro}</span><div class="main"><b>Não foi possível conectar</b><div class="s" style="white-space:normal">${esc(t.erro==='SENHA'?'Teste a conexão no primeiro envio.':t.erro)}</div></div><button class="btn" data-a="retestar">Tentar de novo</button>`;
+    if(this.passo===3) this.renderPasso();
+  },
+  async retestar(){ this.cad.con=null; this.cad.salvo=true; this.renderPasso();
+    const t=await this.comSenha(s=>api().testar_conexao(s,'teste'));
+    this.cad.con=t?.ok?`${ICON.ok}<div><b>Conectado à Receita</b></div>`:`<span class="st erro">${ICON.erro}</span><div class="main"><b>Não foi possível conectar</b><div class="s">${esc(t?.erro||'')}</div></div><button class="btn" data-a="retestar">Tentar de novo</button>`;
+    this.renderPasso(); },
+  async pastaCadastro(){
+    const p=await api().escolher_pasta(); if(!p) return;
+    const c=this.cad; c.compartilhada=p;
+    const r=await api().ler_compartilhado(p);
+    const r2=await api().salvar_empresa({cnpj:c.cert.cnpj,pasta_compartilhada:p,...(r.empresa?{servico:r.empresa.servico,descricao_modelo:r.empresa.descricao_modelo,op_simples:r.empresa.op_simples,aliquota_simples:r.empresa.aliquota_simples}:{})},false);
+    if(!r2.ok) return this.toast(r2.erro);
+    this.s=r2.estado; this.renderPasso();
+    this.toast(r.empresa?'Configuração da empresa aproveitada da pasta.':'Pasta compartilhada definida.');
+  },
+  concluir(){ this.cad={}; this.pronto(); },
+
+  /* ================= Lista ================= */
+  render(){
+    const n=this.notas;
+    $('#vazio').hidden=n.length>0; this.rodape();
+    if(!n.length){ $('#lista').innerHTML=''; return; }
+    const grupos=new Map(); n.forEach((x,i)=>{ if(!grupos.has(x.cnpj)) grupos.set(x.cnpj,[]); grupos.get(x.cnpj).push(i); });
+    $('#lista').innerHTML=[...grupos].map(([doc,idx])=>`
+      <div class="gt"><span>${esc(n[idx[0]].nome||'Buscando nome do cliente…')}</span><span class="num">${fmtDoc(doc)}</span></div>
+      <div class="group">${idx.map(i=>this.linha(i)).join('')}</div>`).join('')
+      +(this.ignoradas.length?`<p class="hint" style="margin-top:12px">Ignoradas (marcadas no arquivo): ${esc(this.ignoradas.join(', '))}.</p>`:'');
+    const tot=n.reduce((a,x)=>a+x.valor,0), ok=this.st.filter(s=>s?.status==='ok').length,
+      falhas=this.st.filter(s=>s?.status==='erro').length, feitos=this.st.filter(s=>s&&!['aguardando','enviando'].includes(s.status)).length;
+    const prim=$('#b-pri'), sec=$('#b-sec'), barra=$('#barra');
+    barra.hidden=this.fase!=='enviando';
+    if(this.fase==='enviando'){
+      $('#qtd').textContent=`Emitindo ${Math.min(feitos+1,this.fila.length)} de ${this.fila.length}…`; barra.firstChild.style.width=(feitos/this.fila.length*100)+'%';
+      prim.textContent='Emitindo…'; prim.disabled=true; sec.hidden=true;
+    } else if(this.fase==='pronto'){
+      $('#qtd').textContent=`${plural(ok,'emitida','emitidas')}${falhas?` · ${falhas} com erro`:''}`;
+      sec.hidden=false; sec.disabled=false; sec.textContent=falhas?'Abrir pasta':'Nova lista'; sec.dataset.a=falhas?'abrirPasta':'novaLista';
+      prim.disabled=false; prim.textContent=falhas?`Tentar ${falhas} de novo`:'Abrir pasta'; prim.dataset.a=falhas?'reenviar':'abrirPasta';
+    } else {
+      $('#qtd').textContent=plural(n.length,'nota','notas');
+      sec.hidden=false; sec.disabled=false; sec.textContent='Limpar'; sec.dataset.a='limpar';
+      prim.disabled=false; prim.textContent=`Emitir ${plural(n.length,'nota','notas')}`; prim.dataset.a='confirmarEmissao';
+    }
+    $('#total').textContent=brl(tot);
+  },
+  linha(i){
+    const x=this.notas[i], st=this.st[i], edit=this.fase==='lista'||(this.fase==='pronto'&&st?.status==='erro');
+    let esq='', dir=`<div class="v num">${brl(x.valor)}</div>`, extra='';
+    if(st?.status==='enviando') esq='<div class="spin" aria-label="Enviando"></div>';
+    if(st?.status==='erro'){ esq=`<div class="st erro">${ICON.erro}</div>`; extra=`<div class="err">${esc(st.msg)}<small>Clique para corrigir</small></div>`; }
+    if(st?.status==='incerto'){ esq=`<div class="st incerto">${ICON.erro}</div>`; extra=`<div class="err warn">${esc(st.msg)}</div>`; }
+    if(st?.status==='ok'){ esq=`<div class="st ok">${ICON.ok}</div>`;
+      dir+=st.item.pdf?`<button class="link" data-a="abrirNota" data-k="${esc(st.item.chave)}" data-tipo="pdf">Nº ${esc(st.item.numero)} · PDF</button>`:`<span class="s">Nº ${esc(st.item.numero)}</span>`;
+      if(st.item.aviso) extra=`<div class="err warn">${esc(st.item.aviso)}</div>`; }
+    const tag=edit?'button':'div';
+    return `<div style="position:relative;display:flex;align-items:center" class="row-wrap">
+      <${tag} class="row ${edit?'click':''}" ${edit?`data-a="editar" data-i="${i}" aria-label="Editar nota de ${esc(x.unidade||x.nome)}"`:''}>${esq}
+        <div class="main"><div class="t">${esc(x.unidade||x.nome||fmtDoc(x.cnpj))}</div><div class="s">${esc(x.descricao)}</div>${extra}</div>${dir}
+        ${this.fase==='lista'?'<span style="width:28px"></span>':''}</${tag}>
+      ${this.fase==='lista'?`<button class="del" style="position:absolute;right:12px" data-a="remover" data-i="${i}" title="Remover" aria-label="Remover nota de ${esc(x.unidade||x.nome)}">${ICON.x}</button>`:''}</div>`;
+  },
+  adicionar(r){
+    if(!r) return; if(!r.ok) return this.toast(r.erro);
+    if(!r.notas.length) return this.toast('Nenhuma nota encontrada nesse conteúdo.');
+    const go=()=>{ if(this.fase!=='lista') this.reset();
+      this.notas.push(...r.notas); this.ignoradas=r.ignoradas||[];
+      this.aba('emitir'); this.render(); this.completarNomes();
+      this.toast(plural(r.notas.length,'nota adicionada','notas adicionadas')); };
+    go();
+  },
+  async completarNomes(){
+    for(const c of new Set(this.notas.filter(n=>!n.nome).map(n=>n.cnpj))){
+      const nome=await api().buscar_nome(c); this.notas.forEach(n=>{ if(n.cnpj===c&&!n.nome) n.nome=nome||''; }); this.render();
+    }
+  },
+  remover(i){
+    i=+i; const [n]=this.notas.splice(i,1), [s]=this.st.splice(i,1); this.render();
+    this.toast('Nota removida',{acao:'Desfazer',fn:()=>{ this.notas.splice(i,0,n); this.st.splice(i,0,s); this.render(); }});
+  },
+  limpar(){
+    this.confirmar('Limpar a lista?',`${plural(this.notas.length,'nota será removida','notas serão removidas')} da lista.`,'Limpar',true,()=>this.reset());
+  },
+  novaLista(){ this.reset(); },
+  reset(){ this.notas=[]; this.st=[]; this.fase='lista'; this.ignoradas=[]; this.erroEnvio=null; this.avisos(); this.render(); },
+  async escolherPdf(){ const f=await lerArquivo('.pdf'); if(f) this.adicionar(await api().importar_pdf(f.b64)); },
+  abrirNota(_,el){ api().abrir_nota(el.dataset.k,el.dataset.tipo); },
+  abrirPasta(){ api().abrir_pasta_notas(); },
+
+  editar(_,el,pre){
+    const i=el?.dataset?.i!==undefined?+el.dataset.i:undefined, novo=i===undefined;
+    const x=novo?(pre||{cnpj:'',nome:'',unidade:'',descricao:'',valor:0}):this.notas[i];
+    this.folha(novo?'Nova nota':'Editar nota','',`
+      <div class="group">
+        <div class="field" id="ff-doc"><label for="f-doc">CNPJ ou CPF</label><input id="f-doc" class="num" value="${esc(fmtDoc(x.cnpj))}" placeholder="Só números"></div>
+        <div class="field" id="ff-nome"><label for="f-nome">Cliente</label><input id="f-nome" value="${esc(x.nome)}" placeholder="Preenchido pelo CNPJ"></div>
+        <div class="field"><label for="f-uni">Unidade</label><input id="f-uni" value="${esc(x.unidade)}" placeholder="Opcional"></div>
+        <div class="field" id="ff-val"><label for="f-val">Valor</label><input id="f-val" class="num" value="${x.valor?fmtNum(x.valor):''}" placeholder="R$ 0,00"></div>
+      </div>${pre&&x.valor?'<p class="hint">Preenchido com o último valor. Altere se mudou.</p>':''}<div class="group" style="display:none">
+      </div>
+      <div class="gt">Descrição</div>
+      <div class="group"><div class="field" id="ff-desc"><textarea id="f-desc" aria-label="Descrição">${esc(x.descricao)}</textarea></div></div>`,
+      novo?'Adicionar':'Salvar', async()=>{
+        const n={cnpj:dig($('#f-doc').value),nome:$('#f-nome').value.trim(),unidade:$('#f-uni').value.trim(),valor:parseValor($('#f-val').value),descricao:$('#f-desc').value.trim()};
+        if(![11,14].includes(n.cnpj.length)) return this.invalido('ff-doc','Confira o CNPJ ou CPF.');
+        if(!n.nome) return this.invalido('ff-nome','Informe o nome do cliente.');
+        if(!(n.valor>0)) return this.invalido('ff-val','Informe o valor.');
+        if(!n.descricao) n.descricao=await api().descricao(n.unidade);
+        if(novo) this.notas.push(n); else { this.notas[i]=n; this.st[i]=null; }
+        this.fechar(); this.render();
+      });
+    const doc=$('#f-doc'), uni=$('#f-uni'), desc=$('#f-desc'); let auto=novo||!x.descricao;
+    desc.oninput=()=>auto=false;
+    uni.oninput=async()=>{ if(auto) desc.value=await api().descricao(uni.value); };
+    if(novo&&!pre) api().descricao('').then(d=>{ if(auto&&!desc.value) desc.value=d; });
+    doc.onblur=async()=>{ const d=dig(doc.value); doc.value=fmtDoc(d);
+      if(d.length===14&&!$('#f-nome').value){ $('#f-nome').placeholder='Buscando…'; $('#f-nome').value=await api().buscar_nome(d); $('#f-nome').placeholder='Preenchido pelo CNPJ'; } };
+    (novo&&!pre?doc:$('#f-val')).focus(); if(pre) $('#f-val').select();
+  },
+
+  /* ================= Emitir ================= */
+  confirmarEmissao(){
+    const semNome=this.notas.findIndex(n=>!n.nome);
+    if(semNome>=0) return this.toast('Falta o nome do cliente em uma nota. Clique nela para completar.');
+    const e=this.s.empresa, prod=e.ambiente==='producao', n=this.notas.length, tot=this.notas.reduce((a,x)=>a+x.valor,0);
+    this.folha(prod?`Emitir ${plural(n,'nota','notas')}?`:`Emitir ${plural(n,'nota','notas')} de teste?`,
+      prod?'As notas terão validade fiscal. Depois de emitidas, só podem ser canceladas.':'Modo de teste: as notas não têm validade fiscal.',`
+      <div class="group">
+        <div class="field"><span class="lbl">Empresa</span><div class="val">${esc(e.apelido||e.nome)}</div></div>
+        <div class="field"><span class="lbl">Total</span><div class="val num">${brl(tot)}</div></div>
+      </div>`, 'Emitir', ()=>{ this.fechar(); this.emitirTudo(); });
+  },
+  emitirTudo(){ this.enviar(this.notas.map((_,i)=>i)); },
+  reenviar(){ this.enviar(this.st.map((s,i)=>s?.status==='erro'?i:-1).filter(i=>i>=0)); },
+  async enviar(idx){
+    this.erroEnvio=null; this.avisos();
+    const r=await this.comSenha(s=>api().emitir(idx.map(i=>this.notas[i]),s));
+    if(!r) return;
+    if(!r.ok){ this.erroEnvio=r.erro; this.avisos(); return; }
+    this.fase='enviando'; this.fila=idx; idx.forEach(i=>this.st[i]={status:'aguardando'}); this.render();
+  },
+  evento(nome,d){
+    if(nome==='progresso'){ this.st[this.fila[d.i]]=d; this.render(); }
+    if(nome==='fim'){ this.fase='pronto'; if(d.estado) this.s=d.estado; this.avisos(); this.render(); this.renderHistorico();
+      this.carregarClientes();
+      this.toast(d.ok===d.total?plural(d.ok,'nota emitida','notas emitidas'):`${d.ok} de ${d.total} emitidas`); }
+  },
+
+  /* ================= Histórico ================= */
+  renderHistorico(){
+    const q=($('#busca').value||'').toLowerCase(), todos=this.s?.historico||[], temTeste=todos.some(x=>x.ambiente==='teste');
+    const h=todos.filter(x=>(this.verTestes||x.ambiente!=='teste')&&(!q||[x.nome,x.unidade,x.numero,x.cnpj].join(' ').toLowerCase().includes(q)));
+    const filtro=temTeste?`<div class="filtro"><button class="link" data-a="alternarTestes">${this.verTestes?'Ocultar notas de teste':'Mostrar notas de teste'}</button></div>`:'';
+    if(!h.length){
+      $('#hist').innerHTML=filtro+(q?`<p class="hint" style="text-align:center;margin-top:40px">Nada encontrado para “${esc(q)}”.</p>`
+        :`<div class="empty"><h2>Nenhuma nota emitida ainda</h2><p>As notas emitidas aparecem aqui, com PDF e XML.</p><div class="actions"><button class="btn primary" data-a="irEmitir">Emitir notas</button></div></div>`);
+      return;
+    }
+    this._h=h; const meses=new Map();
+    h.forEach((x,i)=>{ const [,m,a]=x.data.split(' ')[0].split('/'); const k=`${MESES[+m-1]} de ${a}`; if(!meses.has(k)) meses.set(k,[]); meses.get(k).push(i); });
+    $('#hist').innerHTML=filtro+[...meses].map(([m,idx])=>`
+      <div class="gt"><span>${esc(m)}</span><span class="num">${brl(idx.map(i=>h[i]).filter(x=>x.situacao==='emitida'&&x.ambiente==='producao').reduce((a,x)=>a+x.valor,0))} emitidos</span></div>
+      <div class="group">${idx.map(i=>{const x=h[i];return `<div class="row">
+        <div class="main"><div class="t">${esc(x.unidade||x.nome)}${x.ambiente==='teste'?'<span class="badge teste">Teste</span>':''}${x.situacao==='cancelada'?'<span class="badge cancel">Cancelada</span>':''}${x.situacao==='pendente'?'<span class="badge teste">A confirmar</span>':''}</div>
+        <div class="s">${x.numero?'Nº '+esc(x.numero)+' · ':''}${esc(x.data)} · ${esc(x.nome)}</div></div>
+        <div class="v num">${brl(x.valor)}</div>
+        ${x.situacao==='pendente'?`<button class="link" data-a="confirmarPendente" data-i="${i}">Verificar</button>`:`<button class="more" data-a="menuNota" data-i="${i}" aria-haspopup="menu" aria-label="Ações da nota ${esc(x.numero)}">${ICON.mais}</button>`}</div>`}).join('')}</div>`).join('');
+  },
+  alternarTestes(){ this.verTestes=!this.verTestes; this.renderHistorico(); },
+  irEmitir(){ this.aba('emitir'); },
+  menuNota(_,el){
+    const x=this._h[+el.dataset.i];
+    this.menu(el,[
+      [x.pdf?'Abrir PDF':'Baixar PDF',()=>x.pdf?api().abrir_nota(x.chave,'pdf'):this.baixarPdf(x.chave)],
+      x.xml&&['Abrir XML',()=>api().abrir_nota(x.chave,'xml')],
+      (x.pdf||x.xml)&&['Mostrar na pasta',()=>api().abrir_nota(x.chave,'pasta')],
+      ['Copiar chave de acesso',()=>{navigator.clipboard.writeText(x.chave);this.toast('Chave copiada')}],
+      x.situacao==='emitida'&&'-',
+      x.situacao==='emitida'&&['Cancelar nota…',()=>this.cancelar(x),'red'],
+    ]);
+  },
+  async confirmarPendente(_,el){
+    const x=this._h[+el.dataset.i]; this.toast('Consultando a Receita…');
+    const r=await this.comSenha(s=>api().confirmar_pendente(x.ident,s)); if(!r) return;
+    if(!r.ok) return this.toast(r.erro);
+    this.s=r.estado; this.renderHistorico();
+    this.toast(r.emitida?'A nota foi emitida e está no histórico.':'A Receita não recebeu essa nota. Pode enviar de novo.');
+  },
+  async baixarPdf(chave){ const r=await this.comSenha(s=>api().baixar_pdf(chave,s)); if(!r) return; if(r.ok){ this.s=r.estado; this.renderHistorico(); } else this.toast(r.erro); },
+  cancelar(x){
+    this.folha(`Cancelar a nota nº ${esc(x.numero)}?`,'O cancelamento não pode ser desfeito.',`
+      <div class="group">
+        <div class="field"><span class="lbl">Cliente</span><div class="val">${esc(x.nome)}</div></div>
+        <div class="field"><span class="lbl">Valor</span><div class="val num">${brl(x.valor)}</div></div>
+        <div class="field"><label for="k-mot">Motivo</label><select id="k-mot">${Object.entries(this.s.motivos).map(([k,v])=>`<option value="${k}">${esc(v)}</option>`).join('')}</select></div>
+      </div>
+      <div class="gt"><span>Explique em poucas palavras</span><span id="k-cont">mín. 15 caracteres</span></div>
+      <div class="group"><div class="field" id="fk-txt"><textarea id="k-txt" maxlength="255" aria-label="Explicação" placeholder="Ex.: valor digitado errado, a nota será emitida de novo."></textarea></div></div>`,
+      'Cancelar nota', async()=>{
+        const mot=$('#k-mot').value, txt=$('#k-txt').value.trim();
+        if(txt.length<15) return this.invalido('fk-txt','Use pelo menos 15 caracteres.');
+        const r=await this.comSenha(s=>api().cancelar(x.chave,mot,txt,s)); if(!r) return;
+        if(!r.ok) return this.toast(r.erro);
+        this.s=r.estado; this.fechar(); this.renderHistorico(); this.toast('Nota cancelada');
+      },{cancelar:'Manter nota',destrutivo:true});
+    const t=$('#k-txt'); t.oninput=()=>$('#k-cont').textContent=t.value.trim().length<15?`mín. 15 caracteres (${t.value.trim().length})`:`${t.value.length}/255`; t.focus();
+  },
+
+  /* ================= Ajustes ================= */
+  ajustes(aba='empresa'){
+    if(typeof aba!=='string') aba='empresa';
+    const e=this.s.empresa, c=this.s.certificado||{}, u=e.urls, s=e.servico;
+    const certTxt=c.erro?esc(c.erro):`Válido até ${esc(c.validade||'—')}`;
+    const panes={
+      empresa:`<div class="group">
+          <div class="field" id="fa-nome"><label for="a-nome">Razão social</label><input id="a-nome" value="${esc(e.nome)}"></div>
+          <div class="field"><label for="a-apelido">Nome curto</label><input id="a-apelido" value="${esc(e.apelido||'')}" placeholder="Opcional"></div>
+          <div class="field"><span class="lbl">CNPJ</span><div class="val num">${fmtDoc(e.cnpj)}</div></div>
+          <div class="field"><label for="a-mun">Município</label><input id="a-mun" value="${esc(e.municipio)}"></div>
+          <div class="field" id="fa-ibge"><label for="a-ibge">Código do município</label><input id="a-ibge" class="num" maxlength="7" value="${esc(e.municipio_ibge)}"></div>
+          <div class="field"><label for="a-reg">Regime</label><select id="a-reg">${[[3,'Simples Nacional'],[2,'MEI'],[1,'Outro']].map(([v,t])=>`<option value="${v}" ${e.op_simples==v?'selected':''}>${t}</option>`).join('')}</select></div>
+          <div class="field" id="fa-aliq"><label for="a-aliq">Alíquota do Simples</label><input id="a-aliq" class="num" value="${fmtNum(e.aliquota_simples)}"><span class="unit">%</span></div>
+        </div>
+        <div class="gt">Certificado digital</div>
+        <div class="group">
+          <div class="field"><span class="lbl">Certificado</span><div class="val">${certTxt}</div><button class="link" data-a="trocarCert">Trocar</button></div>
+          <div class="field"><span class="lbl" id="a-guardar-l">Guardar a senha</span><span class="spacer"></span>${sw('a-guardar',!e.pedir_senha)}</div>
+        </div>`,
+      notas:`<div class="group">
+          <div class="field"><span class="lbl">Ambiente</span><span class="spacer"></span>${segBtns('a-amb',[['teste','Teste'],['producao','Produção']],e.ambiente,{producao:!e.teste_ok})}</div>
+          <div class="field"><span class="lbl">Conexão com a Receita</span><div class="val" id="a-con"></div><button class="link" data-a="testar">Testar</button></div>
+        </div>
+        <p class="hint">${e.teste_ok?'Na produção, as notas têm validade fiscal.':'Emita uma nota de teste para liberar a produção.'}</p>
+        <div class="gt">Serviço</div>
+        <div class="group">
+          <div class="field" id="fa-nac"><label for="a-nac">Código do serviço</label><input id="a-nac" class="num" value="${esc(s.cod_nacional)}"></div>
+          <div class="field" id="fa-cmun"><label for="a-cmun">Código municipal</label><input id="a-cmun" class="num" value="${esc(s.cod_municipal)}" placeholder="Opcional"></div>
+          <div class="field" id="fa-nbs"><label for="a-nbs">Código NBS</label><input id="a-nbs" class="num" value="${esc(s.nbs)}" placeholder="Opcional"></div>
+          <div class="field"><span class="lbl" id="a-ret-l">ISS retido pelo cliente</span><span class="spacer"></span>${sw('a-ret',s.iss_retido)}</div>
+        </div>
+        <div class="gt">Descrição das notas</div>
+        <div class="group">
+          <div class="field col" id="fa-modelo"><label for="a-modelo">Modelo</label><input id="a-modelo" value="${esc(e.descricao_modelo)}"></div>
+          <div class="pills"><button data-a="inserir" data-t="{mes}" data-alvo="a-modelo">+ Mês</button><button data-a="inserir" data-t="{ano}" data-alvo="a-modelo">+ Ano</button><button data-a="inserir" data-t="{unidade}" data-alvo="a-modelo">+ Unidade</button></div>
+          <div class="prev" id="a-modelo-prev"></div>
+        </div>`,
+      geral:`<div class="group">
+          <button class="field click" data-a="pasta" data-alvo="a-pnotas"><span class="lbl">Salvar notas em</span><div class="val" id="a-pnotas" data-valor="${esc(e.pasta_notas)}">${esc(e.pasta_notas)}</div></button>
+          <button class="field click" data-a="pasta" data-alvo="a-pcomp"><span class="lbl">Pasta compartilhada</span><div class="val" id="a-pcomp" data-valor="${esc(e.pasta_compartilhada||'')}">${esc(e.pasta_compartilhada||'Não usar')}</div></button>
+        </div>
+        <p class="hint">Com uma pasta na rede, OneDrive ou Google Drive, os computadores da empresa dividem histórico, clientes e numeração. ${e.pasta_compartilhada?'<button class="link" data-a="desligarComp">Parar de usar</button>':''}</p>
+        <div class="gt">Empresas</div>
+        <div class="group">
+          <button class="field click" data-a="novaEmpresa"><span class="lbl" style="color:var(--blue)">Adicionar empresa</span></button>
+          <button class="field click" data-a="removerEmpresa"><span class="lbl" style="color:var(--red)">Remover esta empresa</span></button>
+        </div>
+        <details><summary>Avançado</summary>
+          <div class="group">${['producao','teste'].map(a=>['sefin','adn'].map(k=>`<div class="field col"><label for="u-${a}-${k}">${a==='producao'?'Produção':'Teste'} · ${k==='sefin'?'emissão':'PDF das notas'}</label><input id="u-${a}-${k}" value="${esc(u[a][k])}"></div>`).join('')).join('')}</div>
+          <p class="hint">Endereços oficiais da Receita. Só mude se a Receita anunciar outros. <button class="link" data-a="restaurarUrls">Restaurar padrão</button> <button class="link" data-a="abrirLog">Abrir registro de erros</button></p>
+        </details>
+        <p class="hint" style="text-align:center;margin-top:18px">Notara ${esc(this.s.versao)}</p>`,
+    };
+    const nomes={empresa:'Empresa',notas:'Notas',geral:'Geral'};
+    this.folha('Ajustes','',`<div class="tabs"><div class="seg" role="tablist" id="a-tabs">${Object.entries(nomes).map(([k,v])=>`<button role="tab" data-v="${k}" aria-selected="false">${v}</button>`).join('')}</div></div>
+      ${Object.entries(panes).map(([k,h])=>`<div class="a-pane" role="tabpanel" data-v="${k}">${h}</div>`).join('')}`,'Salvar',()=>this.salvarAjustes());
+    this.irAba(aba);
+    $$('#a-tabs button').forEach(b=>b.onclick=()=>this.irAba(b.dataset.v));
+    this.segs(()=>{ if(segVal('a-amb')==='producao'&&e.ambiente!=='producao') this.ligarProducaoAgora(); });
+    this.previa('a-modelo');
+  },
+  irAba(v){ $$('#a-tabs button').forEach(b=>b.setAttribute('aria-selected',b.dataset.v===v)); $$('.a-pane').forEach(p=>p.hidden=p.dataset.v!==v); },
+  ligarProducao(){ this.ligarProducaoAgora(); },
+  ligarProducaoAgora(){
+    this.confirmar('Ligar a produção?','A partir de agora as notas terão validade fiscal. As notas de teste continuam na pasta Testes.','Ligar',false,async()=>{
+      const r=await api().salvar_empresa({cnpj:this.s.empresa.cnpj,ambiente:'producao'},false,null);
+      if(!r.ok) return this.toast(r.erro);
+      this.s=r.estado; this.cabecalho(); this.avisos(); this.fechar(); this.toast('Produção ligada');
+    },()=>{ const b=$('#a-amb [data-v=teste]'); if(b) $$('#a-amb button').forEach(x=>x.setAttribute('aria-checked',x===b)); });
+  },
+  async salvarAjustes(){
+    const e=this.s.empresa;
+    const urls={}; ['producao','teste'].forEach(a=>urls[a]={sefin:$(`#u-${a}-sefin`).value.trim(),adn:$(`#u-${a}-adn`).value.trim()});
+    const p={cnpj:e.cnpj,nome:$('#a-nome').value.trim(),apelido:$('#a-apelido').value.trim(),municipio:$('#a-mun').value.trim(),municipio_ibge:dig($('#a-ibge').value),
+      op_simples:+$('#a-reg').value,aliquota_simples:parseValor($('#a-aliq').value),pedir_senha:!swOn('a-guardar'),
+      servico:{cod_nacional:$('#a-nac').value.trim(),cod_municipal:$('#a-cmun').value.trim(),nbs:$('#a-nbs').value.trim(),iss_retido:swOn('a-ret')},
+      descricao_modelo:$('#a-modelo').value.trim(),urls,pasta_notas:$('#a-pnotas').dataset.valor,pasta_compartilhada:$('#a-pcomp').dataset.valor};
+    const checa=[['fa-nome','empresa',!p.nome,'Informe a razão social.'],['fa-ibge','empresa',p.municipio_ibge.length!==7,'O código do município tem 7 números.'],
+      ['fa-aliq','empresa',p.op_simples===3&&!(p.aliquota_simples>0&&p.aliquota_simples<100),'Informe a alíquota do Simples.'],
+      ['fa-nac','notas',dig(p.servico.cod_nacional).length!==6,'O código do serviço tem 6 números.'],
+      ['fa-cmun','notas',p.servico.cod_municipal&&dig(p.servico.cod_municipal).length!==3,'O código municipal tem 3 números.'],
+      ['fa-nbs','notas',p.servico.nbs&&dig(p.servico.nbs).length!==9,'O código NBS tem 9 números.'],['fa-modelo','notas',!p.descricao_modelo,'Informe o modelo da descrição.']];
+    for(const [id,aba,falhou,msg] of checa) if(falhou){ this.irAba(aba); return this.invalido(id,msg); }
+    const precisaSenha=e.pedir_senha&&!p.pedir_senha;
+    const salvar=async senha=>{
+      const r=await api().salvar_empresa(p,false,senha||null);
+      if(!r.ok){ if(r.erro==='SENHA') return this.pedirSenha(salvar,'Senha para guardar'); return this.toast(r.erro); }
+      this.s=r.estado; this.fechar(); this.cabecalho(); this.avisos(); this.renderHistorico(); this.toast('Ajustes salvos');
+    };
+    precisaSenha?this.pedirSenha(salvar,'Senha para guardar'):salvar(null);
+  },
+  restaurarUrls(){ const d={producao:{sefin:'https://sefin.nfse.gov.br/SefinNacional',adn:'https://adn.nfse.gov.br'},teste:{sefin:'https://sefin.producaorestrita.nfse.gov.br/SefinNacional',adn:'https://adn.producaorestrita.nfse.gov.br'}};
+    for(const a in d) for(const k in d[a]) $(`#u-${a}-${k}`).value=d[a][k]; },
+  abrirLog(){ api().abrir_log(); },
+  async testar(){ const v=$('#a-con'); v.innerHTML='<span class="spin" style="display:inline-block;vertical-align:middle"></span>';
+    const r=await this.comSenha(s=>api().testar_conexao(s)); if(!$('#a-con')) return;
+    $('#a-con').innerHTML=r?.ok?'<span style="color:var(--green)">Conectado</span>':`<span style="color:var(--red)">${esc(r?.erro||'Não testado')}</span>`; },
+  async pasta(_,el){ const p=await api().escolher_pasta(); if(p){ const v=$('#'+el.dataset.alvo); v.dataset.valor=p; v.textContent=p; } },
+  desligarComp(){ const v=$('#a-pcomp'); v.dataset.valor=''; v.textContent='Não usar'; },
+  async trocarCert(){
+    const f=await lerArquivo('.pfx,.p12'); if(!f) return;
+    this.pedirSenha(async s=>{ const r=await api().trocar_certificado(f.b64,s); if(!r.ok) return this.toast(r.erro);
+      this.s=r.estado; this.avisos(); this.toast('Certificado atualizado'); if($('#scrim').classList.contains('on')) this.ajustes('empresa'); },'Senha do novo certificado');
+  },
+  novaEmpresa(){ this.fechar(); this.cadastro(); },
+  removerEmpresa(){
+    const e=this.s.empresa;
+    this.confirmar('Remover empresa?',`${e.apelido||e.nome} sai deste computador, com o certificado guardado. As notas emitidas continuam na pasta.`,'Remover',true,async()=>{
+      const r=await api().remover_empresa(e.cnpj); if(!r.ok) return this.toast(r.erro);
+      this.s=r.estado; this.fechar(); this.reset(); this.s.empresa?this.pronto():this.cadastro(); });
+  },
+  menuEmpresas(_,el){
+    const trocar=async cnpj=>{ const r=await api().trocar_empresa(cnpj); if(!r.ok) return this.toast(r.erro); this.s=r.estado; this.reset(); this.pronto(); };
+    this.menu(el,[...this.s.empresas.map(x=>[x.nome,()=>{
+      if(x.cnpj===this.s.empresa.cnpj) return;
+      if(this.fase==='enviando') return this.toast('Aguarde o envio terminar.');
+      this.notas.length&&this.fase==='lista'?this.confirmar('Trocar de empresa?','A lista atual será descartada.','Trocar',false,()=>trocar(x.cnpj)):trocar(x.cnpj);
+    },'',x.cnpj===this.s.empresa.cnpj]),'-',['Adicionar empresa…',()=>this.cadastro()]]);
+  },
+  async atualizar(){ this.toast('Baixando atualização…'); const r=await api().instalar_atualizacao(); if(!r.ok) this.toast(r.erro); else this.toast('Instalando. O Notara abre de novo em instantes.'); },
+
+  /* ================= Componentes ================= */
+  segs(cb){ $$('[role=radiogroup] button').forEach(b=>b.onclick=()=>{ $$(`#${b.parentNode.id} button`).forEach(x=>x.setAttribute('aria-checked',x===b)); cb&&cb(); }); },
+  previa(id){ const i=$('#'+id), p=$('#'+id+'-prev'), f=()=>p.innerHTML='Exemplo: <b>'+esc(aplicarModelo(i.value,'Unidade Centro'))+'</b>'; i.oninput=f; f(); },
+  inserir(_,el){ const i=$('#'+el.dataset.alvo), pos=i.selectionStart??i.value.length; i.value=i.value.slice(0,pos)+el.dataset.t+i.value.slice(i.selectionEnd??pos); i.focus(); i.dispatchEvent(new Event('input')); },
+  invalido(id,msg){
+    $$('.field.invalido').forEach(f=>{f.classList.remove('invalido');f.querySelector('[aria-invalid]')?.removeAttribute('aria-invalid')});
+    $$('.hint.erro').forEach(h=>h.remove());
+    const f=$('#'+id); if(!f) return this.toast(msg);
+    f.classList.add('invalido'); const inp=f.querySelector('input,textarea,select'); inp?.setAttribute('aria-invalid','true');
+    const h=document.createElement('p'); h.className='hint erro'; h.id=id+'-erro'; h.setAttribute('role','alert'); h.textContent=msg;
+    f.closest('.group').after(h); inp?.setAttribute('aria-describedby',h.id); inp?.focus();
+    const limpa=()=>{ f.classList.remove('invalido'); h.remove(); inp?.removeAttribute('aria-invalid'); }; inp?.addEventListener('input',limpa,{once:true});
+  },
+  async comSenha(fn){
+    const r=await fn(null);
+    if(r&&r.ok===false&&r.erro==='SENHA') return new Promise(res=>this.pedirSenha(async s=>res(await fn(s)),'Senha do certificado',()=>res(null)));
+    return r;
+  },
+  pedirSenha(cb,titulo='Senha do certificado',cancel){
+    this.folha2(titulo,'Necessária para assinar. Não fica guardada.',`<div class="group"><div class="field" id="fp-senha"><label for="p-senha">Senha</label><input id="p-senha" type="password" autocomplete="off"></div></div>`,
+      'Continuar',()=>{ const s=$('#p-senha').value; if(!s) return this.invalido('fp-senha','Digite a senha.'); this.fechar2(); cb(s); },{onCancel:cancel});
+    $('#p-senha').focus();
+  },
+  confirmar(titulo,texto,ok,destrutivo,acao,onCancel){
+    this.folha2(titulo,texto,'',ok,()=>{ this.fechar2(); acao(); },{destrutivo,onCancel});
+    $('#sheet2-ok').focus();
+  },
+  _montar(sel,id,titulo,sub,corpo,ok,acao,{cancelar='Cancelar',destrutivo=false,onCancel}={}){
+    const el=$(sel); this[`_volta_${id}`]=document.activeElement; this[`_cancel_${id}`]=onCancel;
+    el.innerHTML=`<div class="sh"><h3 id="${id}-t">${esc(titulo)}</h3>${sub?`<p>${esc(sub)}</p>`:''}</div>${corpo?`<div class="sb">${corpo}</div>`:''}
+      <div class="sf"><button class="btn" id="${id}-c">${esc(cancelar)}</button><button class="btn ${destrutivo?'red':'primary'}" id="${id}-ok">${esc(ok)}</button></div>`;
+    el.parentNode.classList.add('on');
+    $(`#${id}-ok`).onclick=acao; $(`#${id}-c`).onclick=()=>id==='sheet'?this.fechar(true):this.fechar2(true);
+    el.onkeydown=e=>{
+      if(e.key==='Enter'&&e.target.tagName==='INPUT'){ e.preventDefault(); acao(); }
+      if(e.key==='Tab'){ const f=[...el.querySelectorAll('button:not([disabled]):not([hidden]),input,select,textarea,summary')].filter(x=>x.offsetParent); if(!f.length) return;
+        if(e.shiftKey&&document.activeElement===f[0]){ e.preventDefault(); f.at(-1).focus(); } else if(!e.shiftKey&&document.activeElement===f.at(-1)){ e.preventDefault(); f[0].focus(); } }
+    };
+    setTimeout(()=>{ if(!el.contains(document.activeElement)) (el.querySelector('input,textarea,select')||$(`#${id}-ok`)).focus(); });
+  },
+  folha(titulo,sub,corpo,ok,acao,op){ this._montar('#sheet','sheet',titulo,sub,corpo,ok,acao,op); },
+  folha2(titulo,sub,corpo,ok,acao,op){ this._montar('#sheet2','sheet2',titulo,sub,corpo,ok,acao,op); },
+  fechar(cancelado){ if(!$('#scrim').classList.contains('on')) return; $('#scrim').classList.remove('on'); if(cancelado) this._cancel_sheet?.(); this._volta_sheet?.focus?.(); },
+  fechar2(cancelado){ if(!$('#scrim2').classList.contains('on')) return; $('#scrim2').classList.remove('on'); if(cancelado) this._cancel_sheet2?.(); (this._volta_sheet2?.isConnected?this._volta_sheet2:$('#sheet-ok'))?.focus?.(); },
+  menu(el,itens){
+    this.fecharMenu(); const m=document.createElement('div'); m.className='menu'; m.setAttribute('role','menu');
+    itens.filter(Boolean).forEach(it=>{ if(it==='-'){ m.appendChild(document.createElement('hr')); return; }
+      const b=document.createElement('button'); b.setAttribute('role','menuitem'); if(it[2]) b.className=it[2];
+      b.innerHTML=`${it.length>3?`<span class="ck">${it[3]?ICON.check:''}</span>`:''}<span></span>`; b.lastChild.textContent=it[0];
+      b.onclick=()=>{ this.fecharMenu(); it[1](); }; m.appendChild(b); });
+    document.body.appendChild(m); const r=el.getBoundingClientRect();
+    m.style.top=Math.min(r.bottom+4,innerHeight-m.offsetHeight-8)+'px'; m.style.left=Math.max(8,Math.min(r.left,innerWidth-m.offsetWidth-8))+'px';
+    const bs=[...m.querySelectorAll('button')]; bs[0]?.focus(); this._menuOrigem=el;
+    m.onkeydown=e=>{ const i=bs.indexOf(document.activeElement);
+      if(e.key==='ArrowDown'){ e.preventDefault(); bs[(i+1)%bs.length].focus(); } if(e.key==='ArrowUp'){ e.preventDefault(); bs[(i-1+bs.length)%bs.length].focus(); } };
+    setTimeout(()=>document.addEventListener('click',()=>this.fecharMenu(),{once:true}));
+  },
+  fecharMenu(){ const m=$('.menu'); if(m){ m.remove(); this._menuOrigem?.focus(); } },
+  carregando(sel,txt){ const b=$(sel); if(b){ b.disabled=true; b.textContent=txt; } },
+  toast(t,acao){
+    const el=$('#toast'), b=$('#toast-b'); $('#toast-t').textContent=t; b.hidden=!acao;
+    if(acao){ b.textContent=acao.acao; b.onclick=()=>{ el.classList.remove('on'); acao.fn(); }; }
+    el.classList.add('on'); clearTimeout(this._t); this._t=setTimeout(()=>el.classList.remove('on'),Math.max(3500,t.length*70)+(acao?2500:0));
+  },
+};
+
+/* Delegação de cliques: nenhum dado entra em atributos de evento. */
+document.addEventListener('click',e=>{
+  const el=e.target.closest('[data-a]'); if(!el||el.disabled) return;
+  const fn=app[el.dataset.a]; if(typeof fn!=='function') return;
+  e.stopPropagation(); if(el.dataset.a==='irPasso') return app.irPasso(el.dataset.n);
+  if(el.getAttribute('role')==='switch') return;
+  fn.call(app,e,el);
+});
+document.addEventListener('click',e=>{ const s=e.target.closest('[role=switch]'); if(s) s.setAttribute('aria-checked',s.getAttribute('aria-checked')!=='true'); });
+$$('#abas button').forEach(b=>b.onclick=()=>app.aba(b.dataset.v));
+$('#busca').oninput=()=>app.renderHistorico();
+$('#q-cli').oninput=()=>app.buscarCli();
+$('#q-cli').onkeydown=e=>{ const n=$$('#res-cli button').length; if(!n) return;
+  if(e.key==='ArrowDown'){ e.preventDefault(); app._sel=(app._sel+1)%n; app.marcarSel(); }
+  if(e.key==='ArrowUp'){ e.preventDefault(); app._sel=(app._sel-1+n)%n; app.marcarSel(); }
+  if(e.key==='Enter'){ e.preventDefault(); app.escolherCli(+$$('#res-cli button')[app._sel].dataset.r); }
+  if(e.key==='Escape'){ $('#q-cli').value=''; app.buscarCli(); } };
+$('#res-cli').onclick=e=>{ const b=e.target.closest('button[data-r]'); if(b){ e.stopPropagation(); app.escolherCli(+b.dataset.r); } };
+document.addEventListener('mousedown',e=>{ if(!e.target.closest('#busca-cli')) $('#res-cli').hidden=true; });
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){ if($('.menu')) return app.fecharMenu(); if($('#scrim2').classList.contains('on')) return app.fechar2(true); app.fechar(true); }
+  if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'&&!$('#busca-cli').hidden&&$('#setup').hidden){ e.preventDefault(); app.aba('emitir'); $('#q-cli').focus(); }
+  if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='n'&&app.fase==='lista'&&$('#setup').hidden&&!$('#scrim').classList.contains('on')){ e.preventDefault(); app.editar(); }
+});
+document.addEventListener('paste',async e=>{
+  if($('#scrim').classList.contains('on')||!$('#setup').hidden||app.fase==='enviando'||/INPUT|TEXTAREA/.test(document.activeElement?.tagName)) return;
+  const t=e.clipboardData.getData('text'); if(!t) return; e.preventDefault(); app.adicionar(await api().importar_texto(t));
+});
+document.addEventListener('dragover',e=>{ e.preventDefault(); document.body.classList.add('drag'); });
+document.addEventListener('dragleave',e=>{ if(!e.relatedTarget) document.body.classList.remove('drag'); });
+document.addEventListener('drop',e=>{
+  e.preventDefault(); document.body.classList.remove('drag');
+  if(!$('#setup').hidden||app.fase==='enviando') return;
+  const f=e.dataTransfer.files[0]; if(!f||!/\.pdf$/i.test(f.name)) return app.toast('Arraste um arquivo PDF.');
+  const r=new FileReader(); r.onload=async()=>app.adicionar(await api().importar_pdf(r.result.split(',')[1])); r.readAsDataURL(f);
+});
+window.addEventListener('pywebviewready',()=>app.init());
+</script>
+</body>
+</html>
