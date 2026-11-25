@@ -106,6 +106,8 @@ main{flex:1;overflow:auto;padding:0 32px 24px}
 .check-n{width:22px;height:22px;border-radius:50%;border:1.5px solid var(--label3);display:grid;place-items:center;color:#fff;flex:none}
 .check-n[aria-checked=true]{background:var(--blue);border-color:var(--blue)}
 .row.apagada .t,.row.apagada .s{color:var(--label3)}
+.aj-cab{display:flex;align-items:center;gap:14px;margin:2px 0 14px}
+.aj-logo{position:relative;width:64px;height:64px;border-radius:16px;flex:none;padding:0;overflow:hidden;background:#fff;box-shadow:inset 0 0 0 1px var(--sep)} .aj-logo img{width:100%;height:100%;object-fit:contain} .aj-logo .avatar{border-radius:16px} .aj-logo .lapis{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.45);color:#fff;opacity:0;transition:opacity .15s} .aj-logo:hover .lapis,.aj-logo:focus-visible .lapis{opacity:1}
 .pk-res{max-height:300px;overflow:auto} .pk-res .row{min-height:60px;padding:12px 16px;gap:12px} .pk-res .t{font-size:14px;margin-bottom:2px} .pk-res .s{white-space:normal;line-height:1.35}
 .lupa{display:flex;align-items:center;gap:8px;background:var(--fill);border-radius:10px;padding:0 12px;height:38px;color:var(--label2);margin-bottom:10px} .lupa input{flex:1;border:0;outline:0;background:none;text-align:left;font:inherit;color:var(--label);height:100%}
 .pk-passo{font-size:12px;font-weight:600;color:var(--label2);text-transform:uppercase;letter-spacing:.04em;margin:4px 4px 8px}
@@ -961,11 +963,6 @@ const app={
           <div class="field"><label for="a-reg">Regime</label><select id="a-reg">${[[3,'Simples Nacional'],[2,'MEI'],[1,'Outro']].map(([v,t])=>`<option value="${v}" ${e.op_simples==v?'selected':''}>${t}</option>`).join('')}</select></div>
           <div class="field" id="fa-aliq"><label for="a-aliq">Alíquota do Simples</label><input id="a-aliq" class="num" value="${fmtNum(e.aliquota_simples)}"><span class="unit">%</span></div>
         </div>
-        <div class="gt">Logo da empresa</div>
-        <div class="group"><div class="field"><span class="lbl">Logo</span><span class="spacer"></span>
-          ${e.logo_url?`<img src="${e.logo_url}" alt="Logo" style="height:32px;max-width:120px;object-fit:contain;margin-right:12px">`:''}
-          <button class="link" data-a="escolherLogo">${e.logo_url?'Trocar':'Escolher imagem'}</button>${e.logo_url?'<button class="link" style="color:var(--red);margin-left:12px" data-a="removerLogo">Remover</button>':''}</div></div>
-        <p class="hint">Aparece no seu perfil. O PDF segue o modelo oficial da Receita, sem logo próprio.</p>
         <div class="gt">Dados que vão em todas as notas</div>
         <div class="group">
           <div class="field" id="fa-im"><label for="a-im">Inscrição Municipal</label><input id="a-im" class="num" value="${esc(e.im||'')}" placeholder="Ex.: 6.414.179-9"></div>
@@ -1044,7 +1041,11 @@ const app={
         <p class="hint">Cada nota emitida em produção vai para o e-mail do cliente (e os CCs dele) logo depois de autorizada. Clientes sem e-mail ficam de fora.</p>`;
     delete panes.email; // envio direto por conta de e-mail fica desligado por enquanto
     const nomes={empresa:'Empresa',notas:'Notas',geral:'Geral'};
-    this.folha('Ajustes','',`<div class="tabs"><div class="seg" role="tablist" id="a-tabs">${Object.entries(nomes).map(([k,v])=>`<button role="tab" data-v="${k}" aria-selected="false">${v}</button>`).join('')}</div></div>
+    const cab=`<div class="aj-cab"><button class="aj-logo" data-a="menuLogo" aria-label="Alterar logo da empresa" title="Alterar logo">
+        ${e.logo_url?`<img src="${e.logo_url}" alt="">`:`<span class="avatar g" style="background:${this.cor(e.cnpj)};width:64px;height:64px;font-size:24px">${esc(this.iniciais(e.apelido||e.nome))}</span>`}
+        <span class="lapis">${ICON.lapis}</span></button>
+      <div class="main"><div class="t" style="font-size:17px;white-space:normal">${esc(e.apelido||e.nome)}</div><div class="s">${fmtDoc(e.cnpj)}</div></div></div>`;
+    this.folha('Ajustes','',cab+`<div class="tabs"><div class="seg" role="tablist" id="a-tabs">${Object.entries(nomes).map(([k,v])=>`<button role="tab" data-v="${k}" aria-selected="false">${v}</button>`).join('')}</div></div>
       ${Object.entries(panes).map(([k,h])=>`<div class="a-pane" role="tabpanel" data-v="${k}">${h}</div>`).join('')}`,'Concluído',()=>this.fechar(),{soOk:true});
     this.irAba(aba); this.aplicarTema(this.tema);
     const mcfg=()=>({}); const salvarM=async(parcial,id,senha)=>{ const r=await api().salvar_envio_email(parcial,senha||null); if(!r.ok) return this.invalido('f'+id,r.erro);
@@ -1127,6 +1128,8 @@ const app={
     this.menu(el,[k?['Tornar padrão',()=>{ const [x]=lista.splice(k,1); lista.unshift(x); this.salvarServicos(lista); }]:null,
       ['Editar…',()=>this.servicoFolha(k)],
       lista.length>1?'-':null, lista.length>1?['Remover',()=>{ lista.splice(k,1); this.salvarServicos(lista); },'red']:null]); },
+  menuLogo(_,el){ if(!this.s.empresa.logo_url) return this.escolherLogo();
+    this.menu(el,[['Trocar imagem…',()=>this.escolherLogo()],['Remover logo',()=>this.removerLogo(),'red']]); },
   async escolherLogo(){ const f=await lerArquivo('.png,.jpg,.jpeg'); if(!f) return; const r=await api().definir_logo(f.b64); if(!r.ok) return this.toast(r.erro);
     this.s=r.estado; this.cabecalho(); this.ajustes('empresa'); },
   async removerLogo(){ const r=await api().definir_logo(''); if(r.ok){ this.s=r.estado; this.cabecalho(); this.ajustes('empresa'); } },
