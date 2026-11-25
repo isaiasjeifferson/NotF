@@ -206,6 +206,16 @@ def guardar_certificado(cnpj, pfx: bytes, senha: str | None):
         _cred(cnpj, "senha").write_bytes(proteger(senha.encode()))
 
 
+def guardar_senha_email(cnpj, senha):
+    _cred(cnpj, "smtp").parent.mkdir(parents=True, exist_ok=True)
+    _cred(cnpj, "smtp").write_bytes(proteger(senha.encode()))
+
+
+def ler_senha_email(cnpj):
+    p = _cred(cnpj, "smtp")
+    return desproteger(p.read_bytes()).decode() if p.exists() else None
+
+
 def ler_certificado(cnpj):
     p = _cred(cnpj, "pfx")
     if not p.exists():
@@ -264,7 +274,7 @@ def clientes(perfil):
 
 
 CAMPOS_CLIENTE = ("im", "email", "fone", "cep", "logradouro", "numero", "complemento", "bairro",
-                  "cmun", "municipio", "uf", "info", "servico")
+                  "cmun", "municipio", "uf", "info", "servico", "email_cc")
 
 
 def salvar_cliente(perfil, doc, nome, unidade=None, valor=None, descricao=None, extra=None):

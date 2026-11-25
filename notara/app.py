@@ -17,10 +17,13 @@ from pathlib import Path
 
 import requests
 
-from . import __version__, catalogo, dados, importar, nfse
+from . import __version__, catalogo, correio, dados, importar, nfse
 from .nfse import Bloqueio, NfseErro, SemResposta, digitos
 
 REPO = "isaiasjeifferson/notara"
+ENVIO_PADRAO = {"provedor": "gmail", "servidor": "smtp.gmail.com", "porta": 587, "usuario": "", "nome_remetente": "",
+                "responder_para": "", "cc_padrao": "", "assunto": correio.ASSUNTO, "mensagem": correio.MENSAGEM, "auto": False}
+PDF_V = 3  # versão do desenho do PDF; ao mudar, os PDFs antigos são refeitos quando abertos
 MOTIVOS = {"1": "Erro na emissão", "2": "Serviço não prestado", "9": "Outro motivo"}
 CAMPOS_EMPRESA = ("nome", "apelido", "municipio_ibge", "municipio", "descricao_modelo", "pasta_notas",
                   "im", "ie", "fone", "email")
@@ -46,7 +49,15 @@ def _publico(p):
         except Exception:
             log.exception("catálogo")
             lista.append(x)
-    return {**p, "urls": p.get("urls") or nfse.URLS_PADRAO, "servicos": lista,
+    logo = ""
+    try:
+        if p.get("logo") and Path(p["logo"]).exists():
+            logo = "data:image/" + ("png" if p["logo"].endswith(".png") else "jpeg") + ";base64," + base64.b64encode(Path(p["logo"]).read_bytes()).decode()
+    except OSError:
+        pass
+    envio = {**ENVIO_PADRAO, **(p.get("envio_email") or {})}
+    envio["senha_ok"] = dados._cred(p["cnpj"], "smtp").exists()
+    return {**p, "urls": p.get("urls") or nfse.URLS_PADRAO, "servicos": lista, "logo_url": logo, "envio_email": envio,
             "im_na_nota": p.get("im_na_nota", True)}
 
 
@@ -157,7 +168,7 @@ class Api:
             "historico": historico,
             "motivos": MOTIVOS,
             "ocupado": self._envio.locked(),
-            "tema": a.get("tema", "auto"),
+            "tema": a.get("tema", "claro"),
         }
 
     def definir_tema(self, tema):
@@ -336,6 +347,135 @@ class Api:
             raise NfseErro("Informe o modelo da descrição.")
 
     # ---- tabela oficial de serviços e NBS ----
+
+    # ---- logo da empresa ----
+
+    def definir_logo(self, b64):
+        def f():
+            perfil = self._perfil()
+            if not b64:
+                if perfil.get("logo"):
+                    Path(perfil["logo"]).unlink(missing_ok=True)
+                dados.salvar_empresa({"cnpj": perfil["cnpj"], "logo": ""})
+                return {"estado": self.estado()}
+            conteudo = base64.b64decode(b64, validate=True)
+            if len(conteudo) > 2_000_000:
+                raise NfseErro("Use uma imagem de até 2 MB.")
+            ext = ".png" if conteudo[:8] == b"\x89PNG\r\n\x1a\n" else ".jpg" if conteudo[:3] == b"\xff\xd8\xff" else None
+            if not ext:
+                raise NfseErro("Use uma imagem PNG ou JPG.")
+            pasta = dados.APP / "logos"
+            pasta.mkdir(parents=True, exist_ok=True)
+            for velho in pasta.glob(f"{perfil['cnpj']}.*"):
+                velho.unlink()
+            destino = pasta / f"{perfil['cnpj']}{ext}"
+            destino.write_bytes(conteudo)
+            dados.salvar_empresa({"cnpj": perfil["cnpj"], "logo": str(destino)})
+            return {"estado": self.estado()}
+        return self._tratar(f)
+
+    # ---- envio por e-mail ----
+
+    def salvar_envio_email(self, cfg, senha=None):
+        def f():
+            perfil = self._perfil()
+            atual = {**ENVIO_PADRAO, **(perfil.get("envio_email") or {})}
+            for k in ENVIO_PADRAO:
+                if k in (cfg or {}):
+                    atual[k] = cfg[k]
+            if cfg and cfg.get("provedor") in correio.PROVEDORES:
+                atual["servidor"], atual["porta"] = correio.PROVEDORES[cfg["provedor"]]
+            try:
+                atual["porta"] = int(atual.get("porta") or 587)
+                if atual.get("usuario"):
+                    correio.emails(atual["usuario"])
+                correio.emails(atual.get("responder_para"))
+                correio.emails(atual.get("cc_padrao"))
+            except (ValueError, correio.ErroEmail) as e:
+                raise NfseErro(str(e) if isinstance(e, correio.ErroEmail) else "Porta inválida.")
+            atual["auto"] = bool(atual.get("auto"))
+            if senha:
+                dados.guardar_senha_email(perfil["cnpj"], str(senha).replace(" ", ""))
+            dados.salvar_empresa({"cnpj": perfil["cnpj"], "envio_email": atual})
+            return {"estado": self.estado()}
+        return self._tratar(f)
+
+    def testar_envio_email(self):
+        def f():
+            perfil = self._perfil()
+            try:
+                correio.testar({**ENVIO_PADRAO, **(perfil.get("envio_email") or {})}, dados.ler_senha_email(perfil["cnpj"]))
+            except correio.ErroEmail as e:
+                raise NfseErro(str(e))
+            return {}
+        return self._tratar(f)
+
+    def _campos_email(self, perfil, item):
+        emp = perfil.get("apelido") or perfil["nome"]
+        valor = f"R$ {item['valor']:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+        return {"numero": item.get("numero", ""), "empresa": emp, "cliente": item.get("nome", ""), "valor": valor,
+                "unidade": f" ({item['unidade']})" if item.get("unidade") else "", "chave": item.get("chave", ""),
+                "mes": dados.MESES[int(item["data"][3:5]) - 1] if item.get("data") else ""}
+
+    def dados_envio(self, chave):
+        def f():
+            perfil = self._perfil()
+            item = self._item(perfil, chave)
+            cfg = {**ENVIO_PADRAO, **(perfil.get("envio_email") or {})}
+            cli = dados.clientes(perfil).get(item.get("cnpj"), {})
+            campos = self._campos_email(perfil, item)
+            cc = ", ".join(x for x in (cli.get("email_cc", ""), cfg.get("cc_padrao", "")) if x)
+            return {"para_nome": item.get("nome", ""), "para": cli.get("email", ""), "cc": cc,
+                    "assunto": correio.preencher(cfg["assunto"], campos), "mensagem": correio.preencher(cfg["mensagem"], campos),
+                    "nome_remetente": cfg.get("nome_remetente") or campos["empresa"], "responder_para": cfg.get("responder_para", ""),
+                    "configurado": bool(cfg.get("usuario")) and dados._cred(perfil["cnpj"], "smtp").exists(),
+                    "enviado_em": item.get("enviado_em", ""), "enviado_para": item.get("enviado_para", "")}
+        return self._tratar(f)
+
+    def _enviar(self, perfil, item, para, cc, assunto, mensagem, nome_remetente="", responder_para="", senha=None):
+        cfg = {**ENVIO_PADRAO, **(perfil.get("envio_email") or {})}
+        pdf = self._pdf_atual(perfil, item, senha)
+        anexos = [pdf] + ([Path(item["xml"])] if item.get("xml") and Path(item["xml"]).exists() else [])
+        try:
+            destinos = correio.enviar(cfg, dados.ler_senha_email(perfil["cnpj"]), para, cc, assunto, mensagem, anexos,
+                                      perfil.get("logo"), nome_remetente, responder_para)
+        except correio.ErroEmail as e:
+            raise NfseErro(str(e))
+        dados.atualizar_historico(perfil, item["chave"], enviado_em=datetime.now().strftime("%d/%m/%Y %H:%M"),
+                                  enviado_para=", ".join(destinos))
+        return destinos
+
+    def enviar_email(self, chave, c, senha=None):
+        def f():
+            perfil = self._perfil()
+            item = self._item(perfil, chave)
+            destinos = self._enviar(perfil, item, c.get("para"), c.get("cc"), str(c.get("assunto") or "").strip() or "NFS-e",
+                                    str(c.get("mensagem") or ""), c.get("nome_remetente", ""), c.get("responder_para", ""), senha)
+            cli = dados.clientes(perfil).get(item.get("cnpj"))
+            if cli is not None and c.get("lembrar"):  # guarda os destinatários no cadastro do cliente
+                dados.salvar_cliente(perfil, item["cnpj"], cli.get("nome", ""), extra={"email": c.get("para", ""), "email_cc": c.get("cc", "")})
+            return {"destinos": destinos, "estado": self.estado()}
+        return self._tratar(f)
+
+    def _email_automatico(self, perfil, item):
+        cfg = {**ENVIO_PADRAO, **(perfil.get("envio_email") or {})}
+        if not cfg.get("auto") or item.get("ambiente") != "producao":
+            return
+        cli = dados.clientes(perfil).get(item.get("cnpj"), {})
+        if not cli.get("email"):
+            return
+
+        def mandar():
+            try:
+                campos = self._campos_email(perfil, item)
+                cc = ", ".join(x for x in (cli.get("email_cc", ""), cfg.get("cc_padrao", "")) if x)
+                self._enviar(perfil, item, cli["email"], cc, correio.preencher(cfg["assunto"], campos),
+                             correio.preencher(cfg["mensagem"], campos), cfg.get("nome_remetente") or campos["empresa"])
+                self._evento("email", {"ok": True, "numero": item.get("numero"), "para": cli["email"]})
+            except Exception as e:
+                log.exception("e-mail automático")
+                self._evento("email", {"ok": False, "numero": item.get("numero"), "erro": str(e)})
+        threading.Thread(target=mandar, daemon=True).start()
 
     def catalogo_servicos(self, q=""):
         return self._tratar(lambda: {"itens": catalogo.servicos(q)})
@@ -638,6 +778,7 @@ class Api:
                     item = self._uma(perfil, cert, receita, nota, lambda e, i=i: self._evento("etapa", {"i": i, "etapa": e}))
                     ok += 1
                     self._evento("progresso", {"i": i, "status": "ok", "item": item})
+                    self._email_automatico(perfil, item)
                 except Bloqueio as e:
                     bloqueio = e
                     self._evento("progresso", {"i": i, "status": "parado"})
@@ -789,7 +930,7 @@ class Api:
             if conteudo:
                 (pasta / f"{nome}.pdf").write_bytes(conteudo)
                 item["pdf"] = str(pasta / f"{nome}.pdf")
-            dados.atualizar_historico(perfil, chave, pdf=item["pdf"], xml=item["xml"])
+            dados.atualizar_historico(perfil, chave, pdf=item["pdf"], xml=item["xml"], pdf_v=PDF_V if item["pdf"] else None)
         except Exception:
             log.exception("arquivos da nota %s", chave)
         if not item["pdf"]:
@@ -874,8 +1015,19 @@ class Api:
         quando = datetime.strptime(item["data"], "%d/%m/%Y %H:%M")
         p = dados.pasta_notas(perfil, item["ambiente"], quando) / (dados.nome_arquivo(item["numero"], item["unidade"] or item["nome"]) + ".pdf")
         p.write_bytes(conteudo)
-        dados.atualizar_historico(perfil, chave, pdf=str(p))
+        dados.atualizar_historico(perfil, chave, pdf=str(p), pdf_v=PDF_V)
         return p
+
+    def _pdf_atual(self, perfil, item, senha=None):
+        """PDF no modelo atual: notas antigas são redesenhadas a partir do XML guardado."""
+        if item.get("pdf") and Path(item["pdf"]).exists() and item.get("pdf_v") == PDF_V:
+            return Path(item["pdf"])
+        try:
+            return self._gerar_pdf(perfil, item, senha)
+        except NfseErro:
+            if item.get("pdf") and Path(item["pdf"]).exists():
+                return Path(item["pdf"])
+            raise
 
     def salvar_pdfs(self, chaves, senha=None):
         """Salva de uma vez os PDFs das notas escolhidas numa pasta escolhida pelo usuário."""
@@ -963,6 +1115,11 @@ class Api:
         item = next((x for x in dados.historico(p) if x.get("chave") == chave), None)
         if not item:
             return {"ok": False}
+        if tipo == "pdf" and item.get("xml") and Path(item["xml"]).exists():
+            try:
+                return self._abrir(self._pdf_atual(p, item))
+            except Exception:
+                log.exception("refazer PDF")
         alvo = item.get(tipo) if tipo != "pasta" else str(Path(item.get("pdf") or item.get("xml") or "").parent)
         return self._abrir(alvo)
 
@@ -973,7 +1130,7 @@ class Api:
             from urllib.parse import quote
             perfil = self._perfil()
             item = self._item(perfil, chave)
-            pdf = Path(item["pdf"]) if item.get("pdf") and Path(item["pdf"]).exists() else self._gerar_pdf(perfil, item, senha)
+            pdf = self._pdf_atual(perfil, item, senha)
             cli = dados.clientes(perfil).get(item.get("cnpj"), {})
             emp = perfil.get("apelido") or perfil["nome"]
             assunto = f"NFS-e nº {item['numero']} - {emp}"
@@ -999,7 +1156,7 @@ class Api:
         def f():
             perfil = self._perfil()
             item = self._item(perfil, chave)
-            pdf = Path(item["pdf"]) if item.get("pdf") and Path(item["pdf"]).exists() else self._gerar_pdf(perfil, item, senha)
+            pdf = self._pdf_atual(perfil, item, senha)
             if sys.platform == "win32":
                 os.startfile(str(pdf), "print")
             else:

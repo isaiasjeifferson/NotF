@@ -21,8 +21,8 @@ from reportlab.pdfgen import canvas
 
 NS = {"n": "http://www.sped.fazenda.gov.br/nfse"}
 CONSULTA = "https://www.nfse.gov.br/ConsultaPublica/?tpc=1&chave={chave}"
-CINZA = HexColor("#EDEDED")
-LINHA = HexColor("#8A8A8A")
+CINZA = HexColor("#F2F2F2")
+LINHA = black
 LOGO = Path(__file__).parent / "logo_nfse.png"
 
 REG_SN = {"1": "Regime de apuração dos tributos federais e municipal pelo Simples Nacional",
@@ -76,63 +76,91 @@ def _endereco(el):
     return ", ".join(p for p in partes if p) or "-"
 
 
-class _Folha:
-    def __init__(self, c):
-        self.c, self.x0, self.w, self.y = c, 22, A4[0] - 44, A4[1] - 22
 
-    def texto(self, x, y, s, tam=7, negrito=False, largura=None):
+H = A4[1]
+COLS = (11.9, 156.5, 301.0, 445.6)   # x das 4 colunas no DANFSe do portal
+LARG = 144.6
+K = 0.80                              # topo do texto -> linha de base (calibrado contra o PDF do portal)
+
+
+class _Pag:
+    """Desenha em coordenadas 'de cima para baixo', iguais às medidas do PDF oficial."""
+
+    def __init__(self, c):
+        self.c = c
+
+    def txt(self, x, top, s, tam=7, negrito=False, larg=None, centro=False):
         fonte = "Helvetica-Bold" if negrito else "Helvetica"
         s = str(s)
-        if largura:
-            while s and stringWidth(s, fonte, tam) > largura:
-                s = s[:-2]
+        if larg and stringWidth(s, fonte, tam) > larg:
+            while s and stringWidth(s + " ...", fonte, tam) > larg:
+                s = s[:-1]
+            s = s.rstrip() + " ..."
         self.c.setFont(fonte, tam)
-        self.c.drawString(x, y, s)
+        y = H - top - K * tam
+        (self.c.drawCentredString if centro else self.c.drawString)(x, y, s)
 
-    def quebrar(self, s, largura, tam=7.5):
+    def linha(self, x0, top, x1, top1=None):
+        self.c.setStrokeColor(LINHA)
+        self.c.setLineWidth(0.5)
+        self.c.line(x0, H - top, x1, H - (top if top1 is None else top1))
+
+    def cinza(self, x, top, w, h):
+        self.c.setFillColor(CINZA)
+        self.c.rect(x, H - top - h, w, h, stroke=0, fill=1)
+        self.c.setFillColor(black)
+
+    def celula(self, col, top, rot, val, vaos=1, cinza=False):
+        if cinza:
+            self.cinza(COLS[col] - 3.4, top - 0.9, LARG, 19.1)
+        larg = LARG * vaos - 6
+        self.txt(COLS[col], top, rot, 6, True, larg)
+        self.txt(COLS[col], top + 6.9, val, 7, False, larg)
+
+    def secao(self, top, titulo, linhas):
+        """linhas: listas de 4 células (rótulo, valor) | None (continuação da anterior). Título ocupa a 1ª célula."""
+        self.linha(8.5, top, 586.8)
+        self.cinza(8.5, top + 0.2, LARG, 19.1)
+        tam = 7
+        while stringWidth(titulo, "Helvetica-Bold", tam) > LARG - 6:
+            tam -= 0.25
+        self.txt(COLS[0], top + 1.3, titulo, tam, True)
+        y = top + 1.1
+        for i, l in enumerate(linhas):
+            for j, cel in enumerate(l):
+                if cel is None or (i == 0 and j == 0):
+                    continue
+                vaos = 1
+                while j + vaos < 4 and l[j + vaos] is None:
+                    vaos += 1
+                self.celula(j, y, cel[0], cel[1], vaos, cinza=len(cel) > 2)
+            y += 19.1
+        return top + 19.1 * len(linhas)
+
+    def paragrafo(self, top, texto, tam=7, passo=8.0, larg=575):
         linhas, atual = [], ""
-        for palavra in str(s).split():
-            teste = (atual + " " + palavra).strip()
-            if stringWidth(teste, "Helvetica", tam) <= largura:
-                atual = teste
+        for palavra in str(texto).split():
+            t = (atual + " " + palavra).strip()
+            if stringWidth(t, "Helvetica", tam) <= larg:
+                atual = t
             else:
                 linhas.append(atual)
                 atual = palavra
         linhas.append(atual)
-        return [l for l in linhas if l] or ["-"]
-
-    def secao(self, titulo, linhas, rotulo_col0=True):
-        """linhas: lista de listas de (rótulo, valor) em 4 colunas. A 1ª célula da 1ª linha é o título."""
-        col = self.w / 4
-        self.c.setStrokeColor(LINHA)
-        self.c.line(self.x0, self.y, self.x0 + self.w, self.y)
-        self.c.setFillColor(CINZA)
-        self.c.rect(self.x0, self.y - 12, col - 6, 12, stroke=0, fill=1)
-        self.c.setFillColor(black)
-        tam = 8
-        while tam > 6 and stringWidth(titulo, "Helvetica-Bold", tam) > col - 10:
-            tam -= 0.25
-        self.texto(self.x0 + 3, self.y - 9, titulo, tam, True)
-        for i, linha in enumerate(linhas):
-            for j, cel in enumerate(linha):
-                if cel is None or (i == 0 and j == 0 and rotulo_col0):
-                    continue
-                rot, val = cel
-                vaos = 1
-                while j + vaos < len(linha) and linha[j + vaos] is None:
-                    vaos += 1  # a célula ocupa as colunas vazias seguintes
-                x, larg = self.x0 + j * col + 2, col * vaos - 6
-                self.texto(x, self.y - 7, rot, 6, True, larg)
-                self.texto(x, self.y - 15, val, 7.5, False, larg)
-            self.y -= 20
-        self.y -= 2
-
-    def bloco(self, titulo, valor):
-        self.texto(self.x0 + 2, self.y - 7, titulo, 6, True)
-        linhas = self.quebrar(valor, self.w - 6)
+        linhas = [l for l in linhas if l] or ["-"]
         for k, l in enumerate(linhas):
-            self.texto(self.x0 + 2, self.y - 15 - k * 9, l, 7.5)
-        self.y -= 12 + 9 * len(linhas)
+            self.txt(COLS[0], top + k * passo, l, tam)
+        return top + passo * len(linhas)
+
+
+def _ibge(c):
+    c = "".join(ch for ch in str(c) if ch.isdigit())
+    return f"{c[:2]}.{c[2:]}" if len(c) == 7 else (c or "-")
+
+
+def _cep(c):
+    c = "".join(ch for ch in str(c) if ch.isdigit())
+    return str(int(c)) if c else "-"
 
 
 def gerar(xml_nfse: bytes) -> bytes:
@@ -145,171 +173,170 @@ def gerar(xml_nfse: bytes) -> bytes:
     prest, serv = dps.find("n:prest", NS), dps.find("n:serv", NS)
     vdps, vnf = dps.find("n:valores", NS), inf.find("n:valores", NS)
     chave = inf.get("Id", "")[3:]
+    end_emit = emit.find("n:enderNac", NS) if emit is not None else None
+    uf_emi = _t(end_emit, "n:UF", "")
 
     buf = BytesIO()
     c = canvas.Canvas(buf, pagesize=A4)
     c.setTitle(f"NFS-e {_t(inf, 'n:nNFSe')}")
-    f = _Folha(c)
+    g = _Pag(c)
 
-    # Moldura e cabeçalho cinza, como no portal
+    # Moldura e cabeçalho
     c.setStrokeColor(LINHA)
-    c.rect(f.x0 - 4, 14, f.w + 8, A4[1] - 14 - 18, stroke=1, fill=0)
-    c.setFillColor(CINZA)
-    c.rect(f.x0 - 4, f.y - 38, f.w + 8, 42, stroke=0, fill=1)
-    c.setFillColor(black)
+    c.setLineWidth(0.5)
+    c.rect(5, H - 5 - 832, 585, 832, stroke=1, fill=0)
+    g.cinza(8.5, 5.7, 144.6, 34)
+    g.cinza(153.1, 5.7, 289.1, 34)
+    g.cinza(442.2, 5.7, 144.6, 34)
     if LOGO.exists():
-        c.drawImage(ImageReader(str(LOGO)), f.x0, f.y - 33, width=150, height=150 * 107 / 540, mask="auto")
-    else:
-        c.setFont("Helvetica-Bold", 16)
-        c.drawString(f.x0, f.y - 22, "NFS-e")
-    c.setFont("Helvetica-Bold", 10)
-    c.drawCentredString(A4[0] / 2, f.y - 14, "DANFSe v2.0")
-    c.drawCentredString(A4[0] / 2, f.y - 26, "Documento Auxiliar da NFS-e")
-    uf_emi = _t(inf, "n:emit/n:enderNac/n:UF", "")
-    f.texto(A4[0] - 200, f.y - 12, f"Município: {_t(inf, 'n:xLocEmi')}" + (f" - {uf_emi}" if uf_emi else ""), 8.5)
-    f.texto(A4[0] - 200, f.y - 21, f"Ambiente Gerador: {_t(inf, 'n:ambGer')}", 6.5)
-    f.texto(A4[0] - 200, f.y - 29, f"Tipo de Ambiente: {_t(dps, 'n:tpAmb')}", 6.5)
-    f.y -= 40
+        c.drawImage(ImageReader(str(LOGO)), 11.9, H - 10.3 - 22.9, width=115.7, height=22.9, mask="auto")
+    g.txt(297.6, 13.7, "DANFSe v2.0", 9, True, centro=True)
+    g.txt(297.6, 24.0, "Documento Auxiliar da NFS-e", 9, True, centro=True)
+    g.txt(445.6, 12.4, f"Município: {_t(inf, 'n:xLocEmi')}" + (f" - {uf_emi}" if uf_emi else ""), 8)
+    g.txt(445.6, 21.2, f"Ambiente Gerador: {_t(inf, 'n:ambGer')}", 6)
+    g.txt(445.6, 28.0, f"Tipo de Ambiente: {_t(dps, 'n:tpAmb')}", 6)
+    g.linha(8.5, 39.9, 586.8)
 
-    # QR code
+    # Identificação
     qr = QrCodeWidget(CONSULTA.format(chave=chave))
+    qr.barBorder = 0
     b = qr.getBounds()
-    tam = 64
-    d = Drawing(tam, tam, transform=[tam / (b[2] - b[0]), 0, 0, tam / (b[3] - b[1]), 0, 0])
+    d = Drawing(45, 45, transform=[45 / (b[2] - b[0]), 0, 0, 45 / (b[3] - b[1]), 0, 0])
     d.add(qr)
-    renderPDF.draw(d, c, A4[0] - 22 - 150, f.y - 64)
-    for k, l in enumerate(["A autenticidade desta NFS-e pode ser verificada pela leitura",
-                           "deste código QR ou pela consulta da chave de acesso no",
-                           "portal nacional da NFS-e"]):
-        f.texto(A4[0] - 22 - 150, f.y - 71 - k * 6.5, l, 5.6)
-
-    col = (f.w - 160) / 3
-    f.texto(f.x0 + 2, f.y - 7, "CHAVE DE ACESSO DA NFS-e", 6, True)
-    f.texto(f.x0 + 2, f.y - 15, chave, 7.5)
-    f.y -= 20
-    for linha in ([("NÚMERO DA NFS-e", _t(inf, "n:nNFSe")), ("COMPETÊNCIA DA NFS-e", _data(_t(dps, "n:dCompet"), False)),
-                   ("DATA E HORA DA EMISSÃO DA NFS-e", _data(_t(inf, "n:dhProc")))],
-                  [("NÚMERO DA DPS", _t(dps, "n:nDPS")), ("SÉRIE DA DPS", _t(dps, "n:serie")),
-                   ("DATA E HORA DA EMISSÃO DA DPS", _data(_t(dps, "n:dhEmi")))],
-                  [("EMITENTE DA NFS-e", {"1": "Prestador", "2": "Tomador", "3": "Intermediário"}.get(_t(dps, "n:tpEmit"), "-")),
-                   ("SITUAÇÃO DA NFS-e", "NFS-e Gerada" if _t(inf, "n:cStat") == "100" else _t(inf, "n:cStat")),
-                   ("FINALIDADE", "-")]):
+    renderPDF.draw(d, c, 492.0, H - 44.8 - 45)
+    for k, l in enumerate(["A autenticidade desta NFS-e pode ser verificada", "pela leitura deste código QR ou pela consulta da",
+                           "chave de acesso no portal nacional da NFS-e"]):
+        g.txt(445.6, 92.7 + 6.8 * k, l, 6)
+    g.txt(COLS[0], 45.5, "CHAVE DE ACESSO DA NFS-e", 7, True)
+    g.txt(COLS[0], 53.4, chave, 7)
+    g.cinza(8.5, 105.1, 144.6, 20.2)
+    for top, linha in ((65.7, [("NÚMERO DA NFS-e", _t(inf, "n:nNFSe")), ("COMPETÊNCIA DA NFS-e", _data(_t(dps, "n:dCompet"), False)),
+                               ("DATA E HORA DA EMISSÃO DA NFS-e", _data(_t(inf, "n:dhProc")))]),
+                       (85.9, [("NÚMERO DA DPS", _t(dps, "n:nDPS")), ("SÉRIE DA DPS", _t(dps, "n:serie")),
+                               ("DATA E HORA DA EMISSÃO DA DPS", _data(_t(dps, "n:dhEmi")))]),
+                       (106.2, [("EMITENTE DA NFS-e", {"1": "Prestador", "2": "Tomador", "3": "Intermediário"}.get(_t(dps, "n:tpEmit"), "-")),
+                                ("SITUAÇÃO DA NFS-e", "NFS-e Gerada" if _t(inf, "n:cStat") == "100" else _t(inf, "n:cStat")),
+                                ("FINALIDADE", "-")])):
         for j, (rot, val) in enumerate(linha):
-            f.texto(f.x0 + 2 + j * col, f.y - 7, rot, 6, True)
-            f.texto(f.x0 + 2 + j * col, f.y - 15, val, 7.5)
-        f.y -= 20
-    f.y -= 10
+            g.txt(COLS[j], top, rot, 7, True)
+            g.txt(COLS[j], top + 7.9, val, 7)
 
-    end_emit = emit.find("n:enderNac", NS) if emit is not None else None
-    f.secao("PRESTADOR / FORNECEDOR", [
+    # Prestador
+    y = g.secao(125.6, "PRESTADOR / FORNECEDOR", [
         [None, ("CNPJ / CPF / NIF", _doc(_t(emit, "n:CNPJ|n:CPF", ""))), ("Indicador Municipal (Inscrição)", _t(emit, "n:IM")),
          ("Telefone", _t(emit, "n:fone"))],
-        [("Nome / Nome Empresarial", _t(emit, "n:xNome")), None, ("Município / Sigla UF", f"{_t(inf, 'n:xLocEmi')} / {_t(end_emit, 'n:UF')}"),
-         ("Código IBGE / CEP", f"{_t(end_emit, 'n:cMun')} / {_t(end_emit, 'n:CEP')}")],
+        [("Nome / Nome Empresarial", _t(emit, "n:xNome")), None, ("Município / Sigla UF", f"{_t(inf, 'n:xLocEmi')} / {uf_emi or '-'}"),
+         ("Código IBGE / CEP", f"{_ibge(_t(end_emit, 'n:cMun', ''))} / {_cep(_t(end_emit, 'n:CEP', ''))}")],
         [("Endereço", _endereco(end_emit)), None, ("E-mail", _t(emit, "n:email")), None],
         [("Simples Nacional na Data de Competência", OP_SN.get(_t(prest, "n:regTrib/n:opSimpNac"), "-")),
          ("Regime de Apuração Tributária pelo SN", REG_SN.get(_t(prest, "n:regTrib/n:regApTribSN"), "-")), None, None],
     ])
 
+    # Tomador
     end_t = toma.find("n:end", NS) if toma is not None else None
     end_tn = end_t.find("n:endNac", NS) if end_t is not None else None
-    f.secao("TOMADOR / ADQUIRENTE", [
+    y = g.secao(y + 0.4, "TOMADOR / ADQUIRENTE", [
         [None, ("CNPJ / CPF / NIF", _doc(_t(toma, "n:CNPJ|n:CPF", ""))), ("Indicador Municipal (Inscrição)", _t(toma, "n:IM")),
          ("Telefone", _t(toma, "n:fone"))],
-        [("Nome / Nome Empresarial", _t(toma, "n:xNome")), None, ("Município / Sigla UF", "-"),
-         ("Código IBGE / CEP", f"{_t(end_tn, 'n:cMun')} / {_t(end_tn, 'n:CEP')}" if end_tn is not None else "-")],
+        [("Nome / Nome Empresarial", _t(toma, "n:xNome")), None, ("Município / Sigla UF", "" if end_tn is None else "-"),
+         ("Código IBGE / CEP", f"{_ibge(_t(end_tn, 'n:cMun', ''))} / {_cep(_t(end_tn, 'n:CEP', ''))}" if end_tn is not None else "-")],
         [("Endereço", _endereco(end_t)), None, ("E-mail", _t(toma, "n:email")), None],
     ])
 
-    f.c.setStrokeColor(LINHA)
-    f.c.line(f.x0, f.y, f.x0 + f.w, f.y)
-    f.c.setFont("Helvetica", 7)
-    f.c.drawCentredString(A4[0] / 2, f.y - 8, "DESTINATÁRIO DA OPERAÇÃO NÃO IDENTIFICADO NA NFS-e")
-    f.c.line(f.x0, f.y - 11, f.x0 + f.w, f.y - 11)
-    f.c.drawCentredString(A4[0] / 2, f.y - 19, "INTERMEDIÁRIO DA OPERAÇÃO NÃO IDENTIFICADO NA NFS-e")
-    f.y -= 23
+    y += 0.4
+    g.linha(8.5, y, 586.8)
+    g.txt(297.6, y + 1.2, "DESTINATÁRIO DA OPERAÇÃO NÃO IDENTIFICADO NA NFS-e", 7, centro=True)
+    g.linha(8.5, y + 8.4, 586.8)
+    g.txt(297.6, y + 9.6, "INTERMEDIÁRIO DA OPERAÇÃO NÃO IDENTIFICADO NA NFS-e", 7, centro=True)
+    y += 16.8
 
+    # Serviço
     ctn = _t(serv, "n:cServ/n:cTribNac", "")
     cod = f"{ctn[:2]}.{ctn[2:4]}.{ctn[4:]}" if len(ctn) == 6 else ctn
     nbs = _t(serv, "n:cServ/n:cNBS", "")
-    f.secao("SERVIÇO PRESTADO", [
+    topo = y
+    y = g.secao(y, "SERVIÇO PRESTADO", [
         [None, ("Código de Tributação Nacional/Municipal", f"{cod} / {_t(serv, 'n:cServ/n:cTribMun')}"),
          ("Código da NBS", f"{nbs[0]}.{nbs[1:5]}.{nbs[5:7]}.{nbs[7:]}" if len(nbs) == 9 else (nbs or "-")),
          ("Local da Prestação / Sigla UF / País", f"{_t(inf, 'n:xLocPrestacao')} / {uf_emi or '-'} / -")],
     ])
-    f.texto(f.x0 + 2, f.y - 4, _t(inf, "n:xTribNac", ""), 7.5)
-    f.y -= 8
-    f.bloco("Descrição do Serviço", _t(serv, "n:cServ/n:xDescServ"))
+    y = g.paragrafo(topo + 20.3, _t(inf, "n:xTribNac", "-"))
+    y += 4.1
+    g.txt(COLS[0], y, "Descrição do Serviço", 6, True)
+    y = g.paragrafo(y + 7.0, _t(serv, "n:cServ/n:xDescServ")) + 3.5
 
+    # Tributação municipal
     tm = vdps.find("n:trib/n:tribMun", NS) if vdps is not None else None
-    f.secao("TRIBUTAÇÃO MUNICIPAL (ISSQN)", [
+    aliq = _t(vnf, "n:pAliqAplic")
+    y = g.secao(y, "TRIBUTAÇÃO MUNICIPAL (ISSQN)", [
         [None, ("Tipo de Tributação do ISSQN", TRIB_ISS.get(_t(tm, "n:tribISSQN"), "-")),
          ("Município / Sigla UF / País de Incidência do ISSQN", f"{_t(inf, 'n:xLocIncid')} / {uf_emi or '-'} / -"), None],
-        [("BC ISSQN", _brl(_t(vnf, "n:vBC", ""))), ("Alíquota Aplicada", (_t(vnf, "n:pAliqAplic") + "%") if _t(vnf, "n:pAliqAplic") != "-" else "-"),
+        [("BC ISSQN", _brl(_t(vnf, "n:vBC", ""))), ("Alíquota Aplicada", (aliq + "%") if aliq != "-" else "-"),
          ("Retenção do ISSQN", RET_ISS.get(_t(tm, "n:tpRetISSQN"), "-")), ("ISSQN Apurado", _brl(_t(vnf, "n:vISSQN", "")))],
     ])
 
     tf = vdps.find("n:trib/n:tribFed", NS) if vdps is not None else None
-    f.secao("TRIBUTAÇÃO FEDERAL (EXCETO CBS)", [
+    y = g.secao(y + 0.4, "TRIBUTAÇÃO FEDERAL (EXCETO CBS)", [
         [None, ("IRRF", _brl(_t(tf, "n:vRetIRRF", ""))), ("Contribuição Previdenciária - Retida", _brl(_t(tf, "n:vRetCP", ""))),
          ("Contribuições Sociais - Retidas", _brl(_t(tf, "n:vRetCSLL", "")))],
         [("PIS - Débito Apuração Própria", _brl(_t(tf, "n:piscofins/n:vPis", ""))),
          ("COFINS - Débito Apuração Própria", _brl(_t(tf, "n:piscofins/n:vCofins", ""))),
          ("Descrição Contrib. Sociais - Retidas", "-"), None],
     ])
+
     ib = inf.find("n:IBSCBS", NS)
-    g = lambda cam: _t(ib, cam)
-    f.secao("TRIBUTAÇÃO IBS/CBS", [
-        [None, ("CST / cClassTrib", f"{_t(dps, 'n:IBSCBS/n:valores/n:trib/n:gIBSCBS/n:CST')} / {_t(dps, 'n:IBSCBS/n:valores/n:trib/n:gIBSCBS/n:cClassTrib')}"),
-         ("Indicador de Operação / Código IBGE Incidência / Município Incidência / Sigla UF", f"{_t(dps, 'n:IBSCBS/n:cIndOp')} / {g('n:cLocalidadeIncid')} / {g('n:xLocalidadeIncid')} / -"), None],
+    gi = lambda cam: _t(ib, cam)
+    gd = lambda cam: _t(dps, "n:IBSCBS/" + cam)
+    y = g.secao(y + 0.4, "TRIBUTAÇÃO IBS/CBS", [
+        [None, ("CST / cClassTrib", f"{gd('n:valores/n:trib/n:gIBSCBS/n:CST')} / {gd('n:valores/n:trib/n:gIBSCBS/n:cClassTrib')}"),
+         ("Indicador de Operação / Código IBGE Incidência / Município Incidência / Sigla UF",
+          f"{gd('n:cIndOp')} / {gi('n:cLocalidadeIncid')} / {gi('n:xLocalidadeIncid')} / -"), None],
         [("Exclusões e Reduções da Base de Cálculo", _brl(_t(ib, "n:valores/n:vCalcReeRepRes", "0"))),
-         ("Base de Cálculo Após Exclusões e Reduções", _brl(_t(ib, "n:valores/n:vBC", ""))),
-         ("Red. Alíquota IBS / Red. Alíquota CBS", f"{g('n:valores/n:uf/n:pRedAliqUF')} / {g('n:valores/n:fed/n:pRedAliqCBS')}"),
-         ("Alíquota - IBS UF / IBS Mun", f"{g('n:valores/n:uf/n:pIBSUF')} / {g('n:valores/n:mun/n:pIBSMun')}")],
-        [("Aliq. Efetiva Municipal - IBS", g("n:valores/n:mun/n:pAliqEfetMun")), ("Valor Apurado Municipal - IBS", _brl(g("n:totCIBS/n:gIBS/n:gIBSMunTot/n:vIBSMun"))),
-         ("Aliq. Efetiva Estadual - IBS", g("n:valores/n:uf/n:pAliqEfetUF")), ("Valor Apurado Estadual - IBS", _brl(g("n:totCIBS/n:gIBS/n:gIBSUFTot/n:vIBSUF")))],
-        [("Valor Total Apurado - IBS", _brl(g("n:totCIBS/n:gIBS/n:vIBSTot"))), ("Alíquota - CBS", g("n:valores/n:fed/n:pCBS")),
-         ("Alíquota Efetiva - CBS", g("n:valores/n:fed/n:pAliqEfetCBS")), ("Valor Total Apurado - CBS", _brl(g("n:totCIBS/n:gCBS/n:vCBS")))],
+         ("Base de Cálculo Após Exclusões e Reduções", _brl(gi("n:valores/n:vBC"))),
+         ("Red. Alíquota IBS / Red. Alíquota CBS", f"{gi('n:valores/n:uf/n:pRedAliqUF')} / {gi('n:valores/n:mun/n:pRedAliqMun')} / {gi('n:valores/n:fed/n:pRedAliqCBS')}"),
+         ("Alíquota - IBS UF / IBS Mun", f"{gi('n:valores/n:uf/n:pIBSUF')} / {gi('n:valores/n:mun/n:pIBSMun')}")],
+        [("Alíq. Efetiva Municipal - IBS", gi("n:valores/n:mun/n:pAliqEfetMun")), ("Valor Apurado Municipal - IBS", _brl(gi("n:totCIBS/n:gIBS/n:gIBSMunTot/n:vIBSMun"))),
+         ("Alíq. Efetiva Estadual - IBS", gi("n:valores/n:uf/n:pAliqEfetUF")), ("Valor Apurado Estadual - IBS", _brl(gi("n:totCIBS/n:gIBS/n:gIBSUFTot/n:vIBSUF")))],
+        [("Valor Total Apurado - IBS", _brl(gi("n:totCIBS/n:gIBS/n:vIBSTot"))), ("Alíquota - CBS", gi("n:valores/n:fed/n:pCBS")),
+         ("Alíquota Efetiva - CBS", gi("n:valores/n:fed/n:pAliqEfetCBS")), ("Valor Total Apurado - CBS", _brl(gi("n:totCIBS/n:gCBS/n:vCBS")))],
     ])
 
     vserv = _t(vdps, "n:vServPrest/n:vServ", "0")
-    f.secao("VALOR TOTAL DA NFS-e", [
+    y = g.secao(y + 0.4, "VALOR TOTAL DA NFS-e", [
         [None, ("VALOR DA OPERAÇÃO / SERVIÇO", _brl(vserv)),
          ("Desconto Incondicionado", _brl(_t(vdps, "n:vDescCondIncond/n:vDescIncond", ""))),
          ("Desconto Condicionado", _brl(_t(vdps, "n:vDescCondIncond/n:vDescCond", "")))],
         [("Total das Retenções (ISSQN / Federais)", _brl(_t(vnf, "n:vTotalRet", ""))),
          ("VALOR LÍQUIDO DA NFS-e", _brl(_t(vnf, "n:vLiq", vserv))),
          ("Total do IBS/CBS", _brl(_t(ib, "n:totCIBS/n:vTotNF", "0"))),
-         ("VALOR LÍQUIDO DA NFS-e + IBS/CBS", _brl(_t(ib, "n:totCIBS/n:vTotNF", "0")))],
+         ("VALOR LÍQUIDO DA NFS-e + IBS/CBS", _brl(_t(ib, "n:totCIBS/n:vTotNF", "0")), "cinza")],
     ])
 
+    y += 0.4
+    g.linha(8.5, y, 586.8)
+    g.txt(COLS[0], y + 1.3, "INFORMAÇÕES COMPLEMENTARES", 7, True)
     tt = vdps.find("n:trib/n:totTrib/n:vTotTrib", NS) if vdps is not None else None
     info = ["Totais aproximados dos Tributos cfe. Lei n° 12.741/2012: "
             f"Federais: {_brl(_t(tt, 'n:vTotTribFed', '')) if tt is not None else '-'}; "
             f"Estaduais: {_brl(_t(tt, 'n:vTotTribEst', '')) if tt is not None else '-'}; "
             f"Municipais: {_brl(_t(tt, 'n:vTotTribMun', '')) if tt is not None else '-'};"]
-    extra = _t(serv, "n:infoCompl/n:xInfComp", "")
-    if extra not in ("", "-"):
-        info.append(extra)
-    outras = _t(inf, "n:xOutInf", "")
-    if outras not in ("", "-"):
-        info.append(outras)
-    f.c.setStrokeColor(LINHA)
-    f.c.line(f.x0, f.y, f.x0 + f.w, f.y)
-    f.texto(f.x0 + 3, f.y - 9, "INFORMAÇÕES COMPLEMENTARES", 8, True)
-    f.y -= 14
+    for extra in (_t(serv, "n:infoCompl/n:xInfComp", ""), _t(inf, "n:xOutInf", "")):
+        if extra not in ("", "-"):
+            info.append(extra)
+    y += 21.4
     for parag in info:
-        f.bloco("", parag)
+        y = g.paragrafo(y, parag)
 
     # Canhoto
-    col = f.w / 4
-    yb = 50
-    f.c.setStrokeColor(LINHA)
-    f.c.rect(f.x0, yb - 20, f.w, 34, stroke=1, fill=0)
-    f.texto(f.x0 + 4, yb + 6, "DATA CIENTIFICAÇÃO:", 6, True)
-    f.texto(f.x0 + col + 4, yb + 6, "IDENTIFICAÇÃO E ASSINATURA", 6, True)
-    f.texto(f.x0 + 2 * col + 4, yb + 6, "N° NFS-e / CHAVE NFS-e", 6, True)
-    f.texto(f.x0 + 2 * col + 4, yb - 3, f"{_t(inf, 'n:nNFSe')} / {chave}", 6.5)
+    for x0, x1 in ((8.5, 154.1), (153.1, 298.6), (297.6, 587.8)):
+        g.linha(x0, 795.8, x1)
+        g.linha(x0, 815.9, x1)
+    for x in (9.0, 153.6, 298.1, 587.3):
+        g.linha(x, 796.3, x, 815.9)
+    g.txt(12.9, 797.2, "DATA CIENTIFICAÇÃO:", 6, True)
+    g.txt(157.5, 797.2, "IDENTIFICAÇÃO E ASSINATURA", 6, True)
+    g.txt(302.0, 797.2, "N° NFS-e / CHAVE NFS-e", 6, True)
+    g.txt(302.0, 804.1, f"{_t(inf, 'n:nNFSe')} / {chave}", 7)
     c.showPage()
     c.save()
     return buf.getvalue()

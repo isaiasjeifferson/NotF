@@ -370,3 +370,36 @@ def test_im_fora_do_cadastro_nacional_reenvia_sem_im(ambiente):
     # corrigir a IM volta a mandá-la
     api.salvar_empresa({"cnpj": "11444777000161", "im": "1234567"})
     assert d.empresa()["im_na_nota"] is True
+
+
+def test_envio_por_email_com_anexos_e_cc(ambiente, monkeypatch):
+    import smtplib
+    d = ambiente.dados
+    api = _cadastrar(ambiente)
+    enviados = []
+
+    class SMTPFalso:
+        def __init__(self, *a, **k): pass
+        def starttls(self, **k): pass
+        def login(self, u, s): assert s == "abcdefghijklmnop"
+        def send_message(self, m): enviados.append(m)
+        def quit(self): pass
+    monkeypatch.setattr(smtplib, "SMTP", SMTPFalso)
+    assert api.salvar_envio_email({"provedor": "gmail", "usuario": "eu@empresa.com.br", "cc_padrao": "contab@x.com"},
+                                  "abcd efgh ijkl mnop")["ok"]
+    perfil = d.empresa()
+    receita = ReceitaFalsa()
+    receita.falhar_em = set()
+    item = api._uma(perfil, api._cert(perfil), receita, {**NOTA, "unidade": "CTA 14"})
+    info = api.dados_envio(item["chave"])
+    assert info["configurado"] and info["cc"] == "contab@x.com" and "CTA 14" in info["mensagem"]
+    r = api.enviar_email(item["chave"], {"para": "cliente@x.com", "cc": "outro@x.com; contab@x.com", "assunto": info["assunto"],
+                                         "mensagem": info["mensagem"], "lembrar": True})
+    assert r["ok"], r
+    m = enviados[0]
+    assert m["To"] == "cliente@x.com" and "outro@x.com" in m["Cc"]
+    nomes = sorted(a.get_filename() for a in m.iter_attachments())
+    assert nomes[0].endswith(".pdf") and nomes[1].endswith(".xml")
+    assert d.clientes(perfil)[item["cnpj"]]["email"] == "cliente@x.com"
+    assert d.historico(perfil)[0]["enviado_para"].startswith("cliente@x.com")
+    assert not api.enviar_email(item["chave"], {"para": "invalido"})["ok"]

@@ -384,7 +384,7 @@ const app={
     $('#empresa-btn').title=e.nome;
     const a=$('#amb'); a.textContent=p?'Produção':'Teste'; a.className='badge '+(p?'prod':'teste');
     a.title=p?'As notas têm validade fiscal':'As notas não têm validade fiscal';
-    $('#perfil-btn').innerHTML=this.av({cnpj:e.cnpj,nome:e.apelido||e.nome}); $('#perfil-btn').setAttribute('aria-label',`Empresa: ${e.apelido||e.nome}. Trocar de empresa`);
+    $('#perfil-btn').innerHTML=e.logo_url?`<span class="avatar" style="background:#fff;overflow:hidden;box-shadow:inset 0 0 0 1px var(--sep)"><img src="${e.logo_url}" alt="" style="width:100%;height:100%;object-fit:contain"></span>`:this.av({cnpj:e.cnpj,nome:e.apelido||e.nome}); $('#perfil-btn').setAttribute('aria-label',`Empresa: ${e.apelido||e.nome}. Trocar de empresa`);
   },
   avisos(){
     const e=this.s.empresa, c=this.s.certificado||{}, out=[];
@@ -754,6 +754,7 @@ const app={
     clearInterval(this._tick); this._tick=setInterval(()=>{ if(this.fase!=='enviando') return clearInterval(this._tick); const c=$('.progresso'); if(c) c.outerHTML=this.cartaoProgresso(); },1000);
   },
   evento(nome,d){
+    if(nome==='email') this.toast(d.ok?`Nota nº ${d.numero} enviada para ${d.para}`:`Nota nº ${d.numero} não foi enviada por e-mail: ${d.erro}`);
     if(nome==='progresso'){ this.verificando=false; if(d.status==='enviando') d.inicio=Date.now(); this.st[this.fila[d.i]]=d; this.render(); }
     if(nome==='pdf'){ if(d.estado) this.s=d.estado; this.st.forEach(s=>{ if(s?.item?.chave===d.chave) s.item.pdf=d.pdf; });
       this.render(); this.renderHistorico(); this.toast('PDF da nota disponível'); }
@@ -815,7 +816,7 @@ const app={
     const alvo=i>=0?i:(this._h.push(x),this._h.length-1); el.dataset.i=alvo; this.menuNota(_,el); },
   async carregarDadosCliente(cnpj,box='#cli-dados'){
     const r=await api().cliente(cnpj); if(!r.ok||!$(box)) return; const c=r.cliente, P=box==='#cli-dados'?'c':'n';
-    const F=[['nome','Nome / Razão social',''],['email','E-mail','Opcional'],['fone','Telefone','Com DDD'],['im','Inscrição Municipal','Opcional'],
+    const F=[['nome','Nome / Razão social',''],['email','E-mail','Opcional'],['email_cc','Cópia (CC)','Outros e-mails, separados por vírgula'],['fone','Telefone','Com DDD'],['im','Inscrição Municipal','Opcional'],
       ['cep','CEP','Digite e o endereço vem sozinho'],['logradouro','Endereço','Rua, avenida…'],['numero','Número',''],['complemento','Complemento','Opcional'],
       ['bairro','Bairro',''],['municipio','Cidade',''],['uf','Estado','UF']].filter(f=>P==='c'||f[0]!=='nome');
     $(box).innerHTML=F.map(([k,r,ph])=>`<div class="field" id="f${P}-${k}"><label for="${P}-${k}">${r}</label><input id="${P}-${k}" data-k="${k}" value="${esc(c[k]||'')}" placeholder="${ph}" ${k==='uf'?'maxlength="2" style="text-transform:uppercase"':''}></div>`).join('')
@@ -892,7 +893,7 @@ const app={
       (x.pdf||x.xml)&&['Mostrar na pasta',()=>api().abrir_nota(x.chave,'pasta')],
       ['Copiar chave de acesso',()=>{navigator.clipboard.writeText(x.chave);this.toast('Chave copiada')}],
       x.situacao==='emitida'&&'-',
-      x.situacao==='emitida'&&['Enviar por e-mail',()=>this.enviarNota(x,'email')],
+      x.situacao==='emitida'&&[x.enviado_em?'Enviar por e-mail (enviada)':'Enviar por e-mail…',()=>this.emailFolha(x)],
       x.situacao==='emitida'&&['Enviar por WhatsApp',()=>this.enviarNota(x,'whatsapp')],
       x.situacao==='emitida'&&['Imprimir',async()=>{ const r=await this.comSenha(sn=>api().imprimir_nota(x.chave,sn)); if(r&&!r.ok) this.toast(r.erro); }],
       ['Emitir de novo (clonar)',()=>this.clonarNota(x)],
@@ -960,6 +961,11 @@ const app={
           <div class="field"><label for="a-reg">Regime</label><select id="a-reg">${[[3,'Simples Nacional'],[2,'MEI'],[1,'Outro']].map(([v,t])=>`<option value="${v}" ${e.op_simples==v?'selected':''}>${t}</option>`).join('')}</select></div>
           <div class="field" id="fa-aliq"><label for="a-aliq">Alíquota do Simples</label><input id="a-aliq" class="num" value="${fmtNum(e.aliquota_simples)}"><span class="unit">%</span></div>
         </div>
+        <div class="gt">Logo da empresa</div>
+        <div class="group"><div class="field"><span class="lbl">Logo</span><span class="spacer"></span>
+          ${e.logo_url?`<img src="${e.logo_url}" alt="Logo" style="height:32px;max-width:120px;object-fit:contain;margin-right:12px">`:''}
+          <button class="link" data-a="escolherLogo">${e.logo_url?'Trocar':'Escolher imagem'}</button>${e.logo_url?'<button class="link" style="color:var(--red);margin-left:12px" data-a="removerLogo">Remover</button>':''}</div></div>
+        <p class="hint">Aparece no seu perfil e na assinatura dos e-mails. O PDF segue o modelo oficial da Receita, sem logo próprio.</p>
         <div class="gt">Dados que vão em todas as notas</div>
         <div class="group">
           <div class="field" id="fa-im"><label for="a-im">Inscrição Municipal</label><input id="a-im" class="num" value="${esc(e.im||'')}" placeholder="Ex.: 6.414.179-9"></div>
@@ -1015,10 +1021,38 @@ const app={
             <button class="link" id="b-upd" data-a="${this.update?'atualizar':'buscarAtualizacao'}">${this.update?'Atualizar agora':'Buscar atualização'}</button></div>
         </div>`,
     };
-    const nomes={empresa:'Empresa',notas:'Notas',geral:'Geral'};
+    const m=e.envio_email||{};
+    panes.email=`<div class="group">
+          <div class="field"><span class="lbl">Conta</span><span class="spacer"></span>${segBtns('m-prov',[['gmail','Gmail'],['outlook','Outlook'],['outro','Outro']],m.provedor||'gmail')}</div>
+          <div class="field" id="fm-usuario"><label for="m-usuario">Seu e-mail</label><input id="m-usuario" value="${esc(m.usuario||'')}" placeholder="voce@empresa.com.br"></div>
+          <div class="field" id="fm-senha"><label for="m-senha">Senha de app</label><input id="m-senha" type="password" autocomplete="off" placeholder="${m.senha_ok?'Guardada · digite para trocar':'16 letras'}"><button class="olho" data-a="olho" data-alvo="m-senha" aria-label="Mostrar senha">Mostrar</button></div>
+          ${m.provedor==='outro'?`<div class="field" id="fm-servidor"><label for="m-servidor">Servidor SMTP</label><input id="m-servidor" value="${esc(m.servidor||'')}"></div>
+          <div class="field" id="fm-porta"><label for="m-porta">Porta</label><input id="m-porta" class="num" value="${esc(m.porta||587)}"></div>`:''}
+          <div class="field"><span class="lbl">Conexão</span><span class="spacer"></span><span class="s" id="m-teste-r"></span><button class="link" data-a="testarEmail">Testar</button></div>
+        </div>
+        <p class="hint">${m.provedor==='outlook'?'No Outlook/Microsoft 365: conta › Segurança › Senhas de app.':'No Gmail: Conta Google › Segurança › Verificação em duas etapas › Senhas de app.'} A senha fica guardada protegida neste computador.</p>
+        <div class="gt">Mensagem</div>
+        <div class="group">
+          <div class="field"><label for="m-nome">Nome do remetente</label><input id="m-nome" value="${esc(m.nome_remetente||'')}" placeholder="${esc(e.apelido||e.nome)}"></div>
+          <div class="field" id="fm-resp"><label for="m-resp">Responder para</label><input id="m-resp" value="${esc(m.responder_para||'')}" placeholder="Opcional"></div>
+          <div class="field" id="fm-cc"><label for="m-cc">Sempre com cópia (CC)</label><input id="m-cc" value="${esc(m.cc_padrao||'')}" placeholder="Ex.: seu e-mail, contabilidade"></div>
+          <div class="field col"><label for="m-assunto">Assunto</label><input id="m-assunto" value="${esc(m.assunto||'')}"></div>
+          <div class="field col"><label for="m-msg">Texto</label><textarea id="m-msg" rows="7">${esc(m.mensagem||'')}</textarea></div>
+        </div>
+        <p class="hint">Vão sozinhos: {numero}, {cliente}, {unidade}, {valor}, {chave}, {mes}, {empresa}. O PDF e o XML seguem anexados.</p>
+        <div class="group" style="margin-top:12px"><div class="field"><span class="lbl" id="m-auto-l">Enviar sozinho ao emitir</span><span class="spacer"></span>${sw('m-auto',m.auto)}</div></div>
+        <p class="hint">Cada nota emitida em produção vai para o e-mail do cliente (e os CCs dele) logo depois de autorizada. Clientes sem e-mail ficam de fora.</p>`;
+    const nomes={empresa:'Empresa',notas:'Notas',email:'E-mail',geral:'Geral'};
     this.folha('Ajustes','',`<div class="tabs"><div class="seg" role="tablist" id="a-tabs">${Object.entries(nomes).map(([k,v])=>`<button role="tab" data-v="${k}" aria-selected="false">${v}</button>`).join('')}</div></div>
       ${Object.entries(panes).map(([k,h])=>`<div class="a-pane" role="tabpanel" data-v="${k}">${h}</div>`).join('')}`,'Concluído',()=>this.fechar(),{soOk:true});
     this.irAba(aba); this.aplicarTema(this.tema);
+    const mcfg=()=>({}); const salvarM=async(parcial,id,senha)=>{ const r=await api().salvar_envio_email(parcial,senha||null); if(!r.ok) return this.invalido('f'+id,r.erro);
+      this.s=r.estado; const st=$('#sheet-status'); if(st){ st.textContent='Salvo'; setTimeout(()=>{ if($('#sheet-status')) $('#sheet-status').textContent=''; },1800); } };
+    this.segs(async v=>{ await salvarM({provedor:v},'m-prov'); this.ajustes('email'); },['m-prov']);
+    [['m-usuario','usuario'],['m-servidor','servidor'],['m-porta','porta'],['m-nome','nome_remetente'],['m-resp','responder_para'],['m-cc','cc_padrao'],['m-assunto','assunto'],['m-msg','mensagem']]
+      .forEach(([id,k])=>$('#'+id)?.addEventListener('change',()=>salvarM({[k]:$('#'+id).value.trim()},id.replace('m-','m-'))));
+    $('#m-senha')?.addEventListener('change',()=>{ const v=$('#m-senha').value; if(v) salvarM({},'m-senha',v).then(()=>{ $('#m-senha').value=''; $('#m-senha').placeholder='Guardada · digite para trocar'; }); });
+    $('#m-auto')?.addEventListener('click',()=>setTimeout(()=>salvarM({auto:swOn('m-auto')},'m-auto'),0));
     $$('#a-tabs button').forEach(b=>b.onclick=()=>this.irAba(b.dataset.v));
     this.segs(v=>{ if(v==='producao'&&this.s.empresa.ambiente!=='producao') this.ligarProducaoAgora();
       else if(v==='teste'&&this.s.empresa.ambiente!=='teste') this.salvarCampo({ambiente:'teste'},'a-amb'); },['a-amb']);
@@ -1092,6 +1126,40 @@ const app={
     this.menu(el,[k?['Tornar padrão',()=>{ const [x]=lista.splice(k,1); lista.unshift(x); this.salvarServicos(lista); }]:null,
       ['Editar…',()=>this.servicoFolha(k)],
       lista.length>1?'-':null, lista.length>1?['Remover',()=>{ lista.splice(k,1); this.salvarServicos(lista); },'red']:null]); },
+  async escolherLogo(){ const f=await lerArquivo('.png,.jpg,.jpeg'); if(!f) return; const r=await api().definir_logo(f.b64); if(!r.ok) return this.toast(r.erro);
+    this.s=r.estado; this.cabecalho(); this.ajustes('empresa'); },
+  async removerLogo(){ const r=await api().definir_logo(''); if(r.ok){ this.s=r.estado; this.cabecalho(); this.ajustes('empresa'); } },
+  async testarEmail(){ const v=$('#m-teste-r'); v.innerHTML='<span class="spin" style="display:inline-block;vertical-align:middle"></span>';
+    const r=await api().testar_envio_email(); if(!$('#m-teste-r')) return; v.textContent=r.ok?'Conectado':''; v.style.color=r.ok?'var(--green)':''; if(!r.ok) this.toast(r.erro); },
+  async emailFolha(x){
+    const r=await api().dados_envio(x.chave); if(!r.ok) return this.toast(r.erro);
+    if(!r.configurado) return this.confirmar('Enviar pelo Notara?','Para mandar com o PDF e o XML anexados, ligue a sua conta de e-mail em Ajustes › E-mail (leva 2 minutos). Ou abra no seu programa de e-mail e anexe o PDF à mão.',
+      'Configurar',false,()=>this.ajustes('email'),()=>this.enviarNota(x,'email'),'Abrir no meu e-mail');
+    this.folha('Enviar nota por e-mail',`Nº ${esc(x.numero)} · ${esc(x.unidade||x.nome)} · PDF e XML anexados`,`
+      <div class="group">
+        <div class="field"><span class="lbl">Para</span><div class="val">${esc(r.para_nome)}</div></div>
+        <div class="field" id="fe-para"><label for="e-para">E-mail</label><input id="e-para" value="${esc(r.para)}" placeholder="cliente@empresa.com.br"></div>
+        <div class="field" id="fe-cc"><label for="e-cc">Cc</label><input id="e-cc" value="${esc(r.cc)}" placeholder="Opcional · separe por vírgula"></div>
+      </div>
+      <details><summary>Mais opções</summary><div class="group">
+        <div class="field"><label for="e-nome">Nome do remetente</label><input id="e-nome" value="${esc(r.nome_remetente)}"></div>
+        <div class="field" id="fe-resp"><label for="e-resp">E-mail para resposta</label><input id="e-resp" value="${esc(r.responder_para)}" placeholder="Opcional"></div>
+      </div></details>
+      <div class="group" style="margin-top:12px">
+        <div class="field col"><label for="e-assunto">Assunto</label><input id="e-assunto" value="${esc(r.assunto)}"></div>
+        <div class="field col"><label for="e-msg">Mensagem</label><textarea id="e-msg" rows="8">${esc(r.mensagem)}</textarea></div>
+      </div>
+      <div class="group" style="margin-top:12px"><div class="field"><span class="lbl" id="e-lembrar-l">Guardar estes e-mails no cliente</span><span class="spacer"></span>${sw('e-lembrar',true)}</div></div>
+      ${r.enviado_em?`<div class="banner info" style="margin-top:12px"><span class="spacer">Enviada em ${esc(r.enviado_em)} para ${esc(r.enviado_para)}</span></div>`:''}`,
+      r.enviado_em?'Reenviar':'Enviar',async()=>{
+        const c={para:$('#e-para').value,cc:$('#e-cc').value,assunto:$('#e-assunto').value,mensagem:$('#e-msg').value,nome_remetente:$('#e-nome').value,responder_para:$('#e-resp').value,lembrar:swOn('e-lembrar')};
+        if(!c.para.trim()) return this.invalido('fe-para','Informe o e-mail do cliente.');
+        const b=$('#sheet .btn.primary'); if(b){ b.disabled=true; b.textContent='Enviando…'; }
+        const res=await this.comSenha(sn=>api().enviar_email(x.chave,c,sn)); if(b){ b.disabled=false; b.textContent='Enviar'; }
+        if(!res) return; if(!res.ok) return this.toast(res.erro);
+        this.s=res.estado; this.fechar(); this._clis=null; this.carregarClientes(); this.renderHistorico(); this.toast(`Enviada para ${res.destinos.join(', ')}`); });
+    $('#e-para').focus();
+  },
   async salvarCampo(parcial,id,senha){
     const st=$('#sheet-status'); if(st) st.textContent='Salvando…';
     const r=await api().salvar_empresa({cnpj:this.s.empresa.cnpj,...parcial},false,senha||null);
@@ -1210,13 +1278,13 @@ const app={
   },
 
   /* ================= Aparência ================= */
-  tema:'auto',
+  tema:'claro',
   aplicarTema(t){
-    this.tema=t||'auto';
+    this.tema=t||'claro';
     const escuro=this.tema==='escuro'||(this.tema==='auto'&&matchMedia('(prefers-color-scheme: dark)').matches);
     document.documentElement.dataset.tema=escuro?'escuro':'claro';
     ['tema-setup','tema-ajustes'].forEach(id=>{ const el=$('#'+id); if(!el) return;
-      el.innerHTML=[['auto','Automático'],['claro','Claro'],['escuro','Escuro']].map(([v,n])=>`<button role="radio" data-v="${v}" aria-checked="${this.tema===v}">${n}</button>`).join('');
+      el.innerHTML=[['claro','Claro'],['escuro','Escuro'],['auto','Automático']].map(([v,n])=>`<button role="radio" data-v="${v}" aria-checked="${this.tema===v}">${n}</button>`).join('');
       el.querySelectorAll('button').forEach(b=>b.onclick=()=>{ this.aplicarTema(b.dataset.v); api().definir_tema(b.dataset.v); }); });
   },
   olho(_,el){ const i=$('#'+el.dataset.alvo), ver=i.type==='password'; i.type=ver?'text':'password';
@@ -1245,8 +1313,8 @@ const app={
       'Continuar',()=>{ const s=$('#p-senha').value; if(!s) return this.invalido('fp-senha','Digite a senha.'); this.fechar2(); cb(s); },{onCancel:cancel});
     $('#p-senha').focus();
   },
-  confirmar(titulo,texto,ok,destrutivo,acao,onCancel){
-    this.folha2(titulo,texto,'',ok,()=>{ this.fechar2(); acao(); },{destrutivo,onCancel});
+  confirmar(titulo,texto,ok,destrutivo,acao,onCancel,cancelar){
+    this.folha2(titulo,texto,'',ok,()=>{ this.fechar2(); acao(); },{destrutivo,onCancel,...(cancelar?{cancelar}:{})});
     $('#sheet2-ok').focus();
   },
   _montar(sel,id,titulo,sub,corpo,ok,acao,{cancelar='Cancelar',destrutivo=false,onCancel,soOk=false,extra=''}={}){
@@ -1331,7 +1399,7 @@ document.addEventListener('drop',e=>{
   const r=new FileReader(); r.onload=async()=>app.adicionar(await api().importar_pdf(r.result.split(',')[1])); r.readAsDataURL(f);
 });
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>{ if(app.tema==='auto') app.aplicarTema('auto'); });
-app.aplicarTema('auto');
+app.aplicarTema('claro');
 window.addEventListener('pywebviewready',()=>app.init());
 </script>
 </body>

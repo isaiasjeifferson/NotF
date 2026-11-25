@@ -13,7 +13,7 @@ UI = BASE / "notara" / "ui" / "index.html"
 def _fundo():
     """Cor de fundo da janela antes de a interface carregar (evita clarão no tema escuro)."""
     from notara import dados
-    tema = dados.ajustes().get("tema", "auto")
+    tema = dados.ajustes().get("tema", "claro")
     if tema == "auto" and sys.platform == "win32":
         try:
             import winreg
