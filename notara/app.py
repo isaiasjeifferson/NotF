@@ -1160,6 +1160,45 @@ class Api:
             return {"estado": self.estado()}
         return self._tratar(f)
 
+    def enviar_varias(self, chaves, senha=None):
+        """Junta os PDFs escolhidos numa pasta e abre o e-mail com a lista das notas, pronto para anexar."""
+        def f():
+            import shutil
+            import webbrowser
+            from urllib.parse import quote
+            perfil = self._perfil()
+            itens = [self._item(perfil, c) for c in chaves or []]
+            if not itens:
+                raise NfseErro("Selecione ao menos uma nota.")
+            pasta = Path(perfil.get("pasta_notas") or Path.home() / "Documents" / "NotF") / "Para enviar" / datetime.now().strftime("%Y-%m-%d %H-%M")
+            pasta.mkdir(parents=True, exist_ok=True)
+            for it in itens:
+                pdf = self._pdf_atual(perfil, it, senha)
+                shutil.copy2(pdf, pasta / pdf.name)
+            emp = perfil.get("apelido") or perfil["nome"]
+            docs = {it.get("cnpj") for it in itens}
+            cli = dados.clientes(perfil).get(next(iter(docs)), {}) if len(docs) == 1 else {}
+            linhas = "\n".join(f"- NFS-e nº {it['numero']}" + (f" ({it['unidade']})" if it.get("unidade") else "")
+                               + f": R$ {it['valor']:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".") for it in itens)
+            texto = f"Olá! Seguem em anexo as notas fiscais de serviço de {emp}:\n\n{linhas}\n\nQualquer dúvida, estamos à disposição."
+            para = ",".join(x for x in (cli.get("email", ""), cli.get("email_cc", "")) if x)
+            webbrowser.open(f"mailto:{quote(para, safe='@,')}?subject={quote(f'Notas fiscais - {emp}')}&body={quote(texto)}")
+            self._abrir_direto(pasta)
+            return {"total": len(itens), "estado": self.estado()}
+        return self._tratar(f)
+
+    def imprimir_varias(self, chaves, senha=None):
+        def f():
+            perfil = self._perfil()
+            n = 0
+            for c in chaves or []:
+                pdf = self._pdf_atual(perfil, self._item(perfil, c), senha)
+                if sys.platform == "win32":
+                    os.startfile(str(pdf), "print")
+                n += 1
+            return {"total": n, "estado": self.estado()}
+        return self._tratar(f)
+
     def imprimir_nota(self, chave, senha=None):
         def f():
             perfil = self._perfil()
