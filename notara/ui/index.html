@@ -238,8 +238,8 @@ details summary::before{content:"›";display:inline-block;margin-right:6px;tran
 .resultados .todas{color:var(--blue);font-weight:600}
 .search{width:100%;border:0;outline:0;background:var(--fill);border-radius:9px;padding:8px 12px;margin-top:4px}
 .filtro{display:flex;justify-content:flex-end;margin-top:8px}
-.avatar{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;color:#fff;font-weight:600;font-size:13px;flex:none;letter-spacing:.02em}
-.avatar.g{width:56px;height:56px;font-size:20px}
+.avatar{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;color:#fff;font-family:Georgia,'Cambria','Times New Roman',serif;font-weight:700;font-size:16px;flex:none;box-shadow:inset 0 0 0 1px rgba(255,255,255,.18),0 1px 2px rgba(234,106,12,.35);text-shadow:0 1px 1px rgba(0,0,0,.15)}
+.avatar.g{width:56px;height:56px;font-size:28px}
 .perfil-btn{display:flex;align-items:center;gap:8px;border-radius:99px;padding:3px 10px 3px 3px;max-width:260px;transition:background var(--dur-1)} .perfil-btn:hover{background:var(--fill)}
 .perfil-btn .nome{font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap} .perfil-btn svg{color:var(--label2);flex:none}
 .avatar.logo{background:#fff;overflow:hidden;box-shadow:inset 0 0 0 1px var(--sep)} .avatar.logo img{width:100%;height:100%;object-fit:contain}
@@ -564,7 +564,7 @@ const app={
         <button class="link" data-a="marcarTodas">${n.every(x=>this.sel(x))?'Desmarcar todas':'Marcar todas'}</button></div>`:'')
       +[...grupos].map(([doc,idx])=>{ const nome=n[idx[0]].nome||'Buscando nome do cliente…', sub=idx.reduce((a,i)=>a+n[i].valor,0);
         return `<section class="grupo" aria-label="${esc(nome)}">
-        <div class="gcab"><span class="avatar" style="background:${this.cor(doc)};width:26px;height:26px;font-size:11px" aria-hidden="true">${esc(this.iniciais(nome))}</span>
+        <div class="gcab"><span class="avatar" style="background:${this.cor(doc)};width:26px;height:26px;font-size:14px" aria-hidden="true">${esc(this.iniciais(nome)[0])}</span>
           <div class="main"><div class="t">${esc(nome)}</div><div class="s num">${fmtDoc(doc)} · ${plural(idx.length,'nota','notas')} · ${brl(sub)}</div></div></div>
         <div class="group">${idx.map(i=>this.linha(i)).join('')}</div></section>`; }).join('')
       +(this.ignoradas.length?`<p class="hint" style="margin-top:12px">Ignoradas (marcadas no arquivo): ${esc(this.ignoradas.join(', '))}.</p>`:'');
@@ -1060,7 +1060,7 @@ const app={
         </div>
         <p class="hint">Com uma pasta na rede, OneDrive ou Google Drive, os computadores da empresa dividem histórico, clientes e numeração. ${e.pasta_compartilhada?'<button class="link" data-a="desligarComp">Parar de usar</button>':''}</p>
         <div class="gt">Empresas neste computador</div>
-        <div class="group">${this.s.empresas.map(x=>`<div class="row"><span class="avatar" style="background:${this.cor(x.cnpj)}">${esc(this.iniciais(x.nome))}</span>
+        <div class="group">${this.s.empresas.map(x=>`<div class="row"><span class="avatar" style="background:${this.cor(x.cnpj)}">${esc(this.iniciais(x.nome)[0])}</span>
             <div class="main"><div class="t">${esc(x.nome)}${x.cnpj===e.cnpj?' <span class="badge ind">Em uso</span>':''}</div><div class="s">${fmtDoc(x.cnpj)}${x.ambiente==='teste'?' · modo teste':''}</div></div>
             ${x.cnpj===e.cnpj?'':`<button class="btn" data-a="usarEmpresa" data-c="${esc(x.cnpj)}">Usar</button>`}
             <button class="acao red" data-a="removerEmpresaX" data-c="${esc(x.cnpj)}" title="Remover deste computador" aria-label="Remover ${esc(x.nome)}">${ICON.lixo}</button></div>`).join('')}</div>
@@ -1082,7 +1082,7 @@ const app={
     };
     const nomes={empresa:'Empresa',notas:'Notas',geral:'Geral'};
     const cab=`<div class="aj-cab"><button class="aj-logo" data-a="menuLogo" aria-label="Alterar logo da empresa" title="Alterar logo">
-        ${e.logo_url?`<img src="${e.logo_url}" alt="">`:`<span class="avatar g" style="background:${this.cor(e.cnpj)};width:64px;height:64px;font-size:24px">${esc(this.iniciais(e.apelido||e.nome))}</span>`}
+        ${e.logo_url?`<img src="${e.logo_url}" alt="">`:`<span class="avatar g" style="background:${this.cor(e.cnpj)};width:64px;height:64px;font-size:32px">${esc(this.iniciais(e.apelido||e.nome)[0])}</span>`}
         <span class="lapis">${ICON.lapis}</span></button>
       <div class="main"><div class="t" style="font-size:17px;white-space:normal">${esc(e.apelido||e.nome)}</div><div class="s">${fmtDoc(e.cnpj)}</div></div></div>`;
     this.folha('Ajustes','',cab+`<div class="tabs"><div class="seg" role="tablist" id="a-tabs">${Object.entries(nomes).map(([k,v])=>`<button role="tab" data-v="${k}" aria-selected="false">${v}</button>`).join('')}</div></div>
@@ -1271,8 +1271,8 @@ const app={
 
   /* ================= Perfis de empresa ================= */
   iniciais(n){ const p=String(n||'?').replace(/\b(LTDA|ME|EPP|EIRELI|S\/?A|SERVICOS?|COMERCIO|DE|DA|DO|DOS|DAS|E)\b/gi,' ').split(/[^A-Za-zÀ-ÿ0-9]+/).filter(Boolean); return ((p[0]||'?')[0]+(p[1]?.[0]||'')).toUpperCase(); },
-  cor(cnpj){ const c=['#007AFF','#34C759','#FF9500','#AF52DE','#FF2D55','#5AC8FA','#5856D6','#FF6B00','#00A88F','#8E8E93']; return c[[...String(cnpj)].reduce((a,d)=>a+ +d,0)%c.length]; },
-  av(e,g){ return `<span class="avatar ${g?'g':''}" style="background:${this.cor(e.cnpj)}" aria-hidden="true">${esc(this.iniciais(e.nome))}</span>`; },
+  cor(){ return 'linear-gradient(140deg,#FF9A3C 0%,#EA6A0C 55%,#D4520A 100%)'; },
+  av(e,g){ return `<span class="avatar ${g?'g':''}" style="background:${this.cor(e.cnpj)}" aria-hidden="true">${esc(this.iniciais(e.nome)[0])}</span>`; },
   painelPerfis(){
     if($('.perfis:not(.saindo)')) return this.fecharPerfis();
     const e=this.s.empresa, outras=this.s.empresas.filter(x=>x.cnpj!==e.cnpj);
