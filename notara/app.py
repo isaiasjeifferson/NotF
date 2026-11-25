@@ -505,16 +505,48 @@ class Api:
         if campos.get("email") and "@" not in str(campos["email"]):
             return {"ok": False, "erro": "E-mail inválido.", "campo": "email"}
         extra = {k: campos.get(k, "") for k in dados.CAMPOS_CLIENTE if k in campos}
+        preenchidos = {}
         if "cep" in extra:
             extra["cep"] = cep
+            anterior = dados.clientes(p).get(doc, {}).get("cep", "")
+            achado = self._consultar_cep(cep) if cep and cep != anterior else None
+            if achado:  # CEP novo: rua, bairro, cidade e UF vêm dele; número e complemento ficam
+                preenchidos = {k: v for k, v in achado.items() if v}
+                extra.update(preenchidos)
+        if "municipio" in extra or "uf" in extra:
+            extra["municipio"] = str(extra.get("municipio", "")).strip()[:60]
         dados.salvar_cliente(p, doc, nome, extra=extra)
-        return {"ok": True}
+        return {"ok": True, "preenchidos": preenchidos}
+
+    @staticmethod
+    def _consultar_cep(cep):
+        """Endereço e código IBGE do município pelo CEP (ViaCEP; BrasilAPI como reserva)."""
+        try:
+            r = requests.get(f"https://viacep.com.br/ws/{cep}/json/", timeout=8)
+            d = r.json() if r.ok else {}
+            if d and not d.get("erro"):
+                return {"logradouro": str(d.get("logradouro") or "")[:255], "bairro": str(d.get("bairro") or "")[:60],
+                        "municipio": str(d.get("localidade") or "")[:60], "uf": str(d.get("uf") or "")[:2],
+                        "cmun": digitos(d.get("ibge"))[:7]}
+        except (requests.RequestException, ValueError):
+            pass
+        try:
+            r = requests.get(f"https://brasilapi.com.br/api/cep/v1/{cep}", timeout=8)
+            d = r.json() if r.ok else {}
+            if d.get("city"):
+                return {"logradouro": str(d.get("street") or "")[:255], "bairro": str(d.get("neighborhood") or "")[:60],
+                        "municipio": str(d.get("city") or "")[:60], "uf": str(d.get("state") or "")[:2]}
+        except (requests.RequestException, ValueError):
+            pass
+        return None
 
     def completar_cliente_pelo_cnpj(self, doc):
         info = self._consultar_cnpj(digitos(doc)) if len(digitos(doc)) == 14 else None
         if not info:
             return {"ok": False, "erro": "Não foi possível consultar o CNPJ agora."}
-        return {"ok": True, "dados": {k: info.get(k, "") for k in ("nome", *dados.CAMPOS_CLIENTE) if k != "info"}}
+        cidade, _, uf = str(info.get("municipio") or "").partition("/")
+        info = {**info, "municipio": cidade, "uf": uf}
+        return {"ok": True, "dados": {k: info.get(k, "") for k in ("nome", *dados.CAMPOS_CLIENTE) if k not in ("info", "servico")}}
 
     def renomear_cliente(self, doc, nome):
         p = dados.empresa()
@@ -560,7 +592,9 @@ class Api:
             info = self._consultar_cnpj(doc) or {}
             nome = info.get("nome", "")
             if nome and p:
-                extra = {k: info.get(k, "") for k in dados.CAMPOS_CLIENTE if k != "info"}
+                cidade, _, uf = str(info.get("municipio") or "").partition("/")
+                info = {**info, "municipio": cidade, "uf": uf}
+                extra = {k: info.get(k, "") for k in dados.CAMPOS_CLIENTE if k not in ("info", "servico")}
                 dados.salvar_cliente(p, doc, nome, extra=extra)
             return nome
         except Exception:

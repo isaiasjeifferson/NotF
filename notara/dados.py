@@ -264,7 +264,7 @@ def clientes(perfil):
 
 
 CAMPOS_CLIENTE = ("im", "email", "fone", "cep", "logradouro", "numero", "complemento", "bairro",
-                  "cmun", "municipio", "info", "servico")
+                  "cmun", "municipio", "uf", "info", "servico")
 
 
 def salvar_cliente(perfil, doc, nome, unidade=None, valor=None, descricao=None, extra=None):

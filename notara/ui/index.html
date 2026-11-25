@@ -688,6 +688,8 @@ const app={
       </div>${pre&&x.valor?'<p class="hint">Preenchido com o último valor. Altere se mudou.</p>':''}
       ${(this.s.empresa.servicos||[]).length>1?`<div class="gt">Serviço</div><div class="group"><div class="field"><select id="f-srv" aria-label="Serviço" style="flex:1">
         <option value="">Automático · o último usado com este cliente</option>${this.s.empresa.servicos.map(v=>{const c=v.cod_nacional+'|'+(v.nbs||'');return `<option value="${c}" ${x.servico===c?'selected':''}>${fmtCod(v.cod_nacional)} · ${esc(nomeSrv(v))}</option>`}).join('')}</select></div></div>`:''}
+      <details id="f-cli-det" ${dig(x.cnpj).length>=11?'':'hidden'}><summary>Dados do cliente · vão na nota</summary><div class="group" id="f-cli"><div class="field"><span class="s">Carregando…</span></div></div>
+        <p class="hint">É o mesmo cadastro da aba Clientes: o que mudar aqui vale lá e nas próximas notas.</p></details>
       <div class="gt">Descrição</div>
       <div class="group"><div class="field" id="ff-desc"><textarea id="f-desc" aria-label="Descrição">${esc(x.descricao)}</textarea></div></div>`,
       novo?'Adicionar':'Salvar', async()=>{
@@ -704,8 +706,13 @@ const app={
     desc.oninput=()=>auto=false;
     uni.oninput=async()=>{ if(auto) desc.value=await api().descricao(uni.value); };
     if(novo&&!pre) api().descricao('').then(d=>{ if(auto&&!desc.value) desc.value=d; });
+    const dadosCli=d=>{ const det=$('#f-cli-det'); if(!det) return; det.hidden=![11,14].includes(d.length); if(!det.hidden&&det.dataset.doc!==d){ det.dataset.doc=d; this.carregarDadosCliente(d,'#f-cli'); } };
+    this._dadosCliNota=dadosCli;
     doc.onblur=async()=>{ const d=dig(doc.value); doc.value=fmtDoc(d);
-      if(d.length===14&&!$('#f-nome').value){ $('#f-nome').placeholder='Buscando…'; $('#f-nome').value=await api().buscar_nome(d); $('#f-nome').placeholder='Preenchido pelo CNPJ'; } };
+      if(d.length===14&&!$('#f-nome').value){ $('#f-nome').placeholder='Buscando…'; $('#f-nome').value=await api().buscar_nome(d); $('#f-nome').placeholder='Preenchido pelo CNPJ'; }
+      if($('#f-nome').value&&[11,14].includes(d.length)&&!(await api().cliente(d)).cliente.nome) await api().salvar_dados_cliente(d,{nome:$('#f-nome').value});
+      dadosCli(d); };
+    if([11,14].includes(dig(x.cnpj).length)) dadosCli(dig(x.cnpj));
     if(busca){ const qc=$('#f-qc'), res=$('#f-qc-res');
       qc.oninput=()=>{ const q=qc.value.trim().toLowerCase(), qd=dig(q); if(!q){ res.hidden=true; return; }
         const op=[]; this.clis.forEach(c=>{ const bate=t=>t.toLowerCase().includes(q)||(qd&&c.cnpj.includes(qd));
@@ -721,7 +728,7 @@ const app={
     $('#f-doc').value=fmtDoc(o.c.cnpj); $('#f-nome').value=o.c.nome; $('#f-uni').value=o.u.nome||'';
     if(o.u.valor) $('#f-val').value=fmtNum(o.u.valor);
     $('#f-desc').value=o.u.nome?await api().descricao_cliente(o.c.cnpj,o.u.nome):await api().descricao('');
-    $('#f-qc').value=''; $('#f-qc-res').hidden=true; $('#f-val').focus(); $('#f-val').select(); },
+    this._dadosCliNota?.(o.c.cnpj); $('#f-qc').value=''; $('#f-qc-res').hidden=true; $('#f-val').focus(); $('#f-val').select(); },
   /* ================= Emitir ================= */
   selecionadas(){ return this.notas.map((x,i)=>this.sel(x)?i:-1).filter(i=>i>=0); },
   confirmarEmissao(){
@@ -806,17 +813,22 @@ const app={
   cliAba(_,el){ this._cliAba=el.dataset.v; this.abrirCliente(el.dataset.c); },
   menuNotaCli(_,el){ const x=this._hc[+el.dataset.k]; this._h=this._h||[]; const i=this._h.indexOf(x);
     const alvo=i>=0?i:(this._h.push(x),this._h.length-1); el.dataset.i=alvo; this.menuNota(_,el); },
-  async carregarDadosCliente(cnpj){
-    const r=await api().cliente(cnpj); if(!r.ok||!$('#cli-dados')) return; const c=r.cliente;
-    const F=[['nome','Nome / Razão social',''],['im','Inscrição Municipal','Opcional'],['email','E-mail','Opcional'],['fone','Telefone','Com DDD'],
-      ['cep','CEP','8 números'],['logradouro','Endereço','Rua, avenida…'],['numero','Número',''],['complemento','Complemento','Opcional'],
-      ['bairro','Bairro',''],['cmun','Código do município','IBGE · 7 números']];
-    $('#cli-dados').innerHTML=F.map(([k,r,ph])=>`<div class="field" id="fc-${k}"><label for="c-${k}">${r}</label><input id="c-${k}" data-k="${k}" value="${esc(c[k]||'')}" placeholder="${ph}"></div>`).join('')
-      +`<div class="field col" id="fc-info"><label for="c-info">Informações complementares</label><input id="c-info" data-k="info" value="${esc(c.info||'')}" placeholder="Ex.: Contrato nº 123/2026 · Empenho 456"></div>`;
-    $$('#cli-dados input').forEach(i=>i.addEventListener('change',async()=>{
-      const st=$('#cli-dados').closest('section'); const r=await api().salvar_dados_cliente(cnpj,{[i.dataset.k]:i.value});
-      if(!r.ok) return this.invalido('fc-'+(r.campo||i.dataset.k),r.erro);
-      this._clis=null; this.carregarClientes(); this.toast('Cliente atualizado');
+  async carregarDadosCliente(cnpj,box='#cli-dados'){
+    const r=await api().cliente(cnpj); if(!r.ok||!$(box)) return; const c=r.cliente, P=box==='#cli-dados'?'c':'n';
+    const F=[['nome','Nome / Razão social',''],['email','E-mail','Opcional'],['fone','Telefone','Com DDD'],['im','Inscrição Municipal','Opcional'],
+      ['cep','CEP','Digite e o endereço vem sozinho'],['logradouro','Endereço','Rua, avenida…'],['numero','Número',''],['complemento','Complemento','Opcional'],
+      ['bairro','Bairro',''],['municipio','Cidade',''],['uf','Estado','UF']].filter(f=>P==='c'||f[0]!=='nome');
+    $(box).innerHTML=F.map(([k,r,ph])=>`<div class="field" id="f${P}-${k}"><label for="${P}-${k}">${r}</label><input id="${P}-${k}" data-k="${k}" value="${esc(c[k]||'')}" placeholder="${ph}" ${k==='uf'?'maxlength="2" style="text-transform:uppercase"':''}></div>`).join('')
+      +`<div class="field col" id="f${P}-info"><label for="${P}-info">Informações complementares</label><input id="${P}-info" data-k="info" value="${esc(c.info||'')}" placeholder="Ex.: Contrato nº 123/2026 · Empenho 456"></div>`;
+    $$(box+' input').forEach(i=>i.addEventListener('change',async()=>{
+      const k=i.dataset.k; if(k==='nome'&&!i.value.trim()) return;
+      const r=await api().salvar_dados_cliente(cnpj,{[k]:k==='uf'?i.value.toUpperCase():i.value});
+      if(!r.ok) return this.invalido(`f${P}-`+(r.campo||k),r.erro);
+      for(const [kk,v] of Object.entries(r.preenchidos||{})){ const x=$(`#${P}-${kk}`); if(x) x.value=v; }
+      if(k==='nome'&&$('#f-nome')) $('#f-nome').value=i.value;
+      this._clis=null; this.carregarClientes();
+      this.toast(Object.keys(r.preenchidos||{}).length?'Endereço preenchido pelo CEP':'Cliente atualizado');
+      if(k==='cep'&&Object.keys(r.preenchidos||{}).length) $(`#${P}-numero`)?.focus();
     }));
   },
   async completarCliente(_,el){
