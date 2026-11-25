@@ -824,6 +824,50 @@ class Api:
             raise NfseErro("Nota não encontrada.")
         return item
 
+    def _gerar_pdf(self, perfil, item, senha=None):
+        """PDF da nota a partir do XML salvo (ou baixado de novo); fica gravado na pasta de notas."""
+        chave = item["chave"]
+        xml = b""
+        if item.get("xml") and Path(item["xml"]).exists():
+            xml = Path(item["xml"]).read_bytes()
+        conteudo = self._pdf_local(xml)
+        if not conteudo:
+            receita = self._receita(perfil, self._cert(perfil, senha), item["ambiente"])
+            xml = receita.baixar_xml(chave)
+            conteudo = self._pdf_local(xml) or receita.danfse(chave)
+        if not conteudo:
+            raise NfseErro("Não foi possível gerar o PDF desta nota agora.")
+        quando = datetime.strptime(item["data"], "%d/%m/%Y %H:%M")
+        p = dados.pasta_notas(perfil, item["ambiente"], quando) / (dados.nome_arquivo(item["numero"], item["unidade"] or item["nome"]) + ".pdf")
+        p.write_bytes(conteudo)
+        dados.atualizar_historico(perfil, chave, pdf=str(p))
+        return p
+
+    def salvar_pdfs(self, chaves, senha=None):
+        """Salva de uma vez os PDFs das notas escolhidas numa pasta escolhida pelo usuário."""
+        def f():
+            perfil = self._perfil()
+            destino = self.escolher_pasta()
+            if not destino:
+                return {"cancelado": True}
+            import shutil
+            ok, falhas = 0, 0
+            for chave in chaves or []:
+                try:
+                    p = self._gerar_pdf(perfil, self._item(perfil, chave), senha)
+                    shutil.copy2(p, Path(destino) / p.name)
+                    ok += 1
+                except NfseErro as e:
+                    if str(e) == "SENHA":
+                        raise
+                    falhas += 1
+                except Exception:
+                    log.exception("salvar pdf %s", chave)
+                    falhas += 1
+            self._abrir_direto(Path(destino))
+            return {"salvos": ok, "falhas": falhas, "estado": self.estado()}
+        return self._tratar(f)
+
     def baixar_pdf(self, chave, senha=None):
         def f():
             perfil = self._perfil()
@@ -887,6 +931,52 @@ class Api:
             return {"ok": False}
         alvo = item.get(tipo) if tipo != "pasta" else str(Path(item.get("pdf") or item.get("xml") or "").parent)
         return self._abrir(alvo)
+
+    def enviar_nota(self, chave, via, senha=None):
+        """Abre o e-mail ou o WhatsApp com a mensagem pronta; o PDF fica selecionado na pasta para anexar."""
+        def f():
+            import webbrowser
+            from urllib.parse import quote
+            perfil = self._perfil()
+            item = self._item(perfil, chave)
+            pdf = Path(item["pdf"]) if item.get("pdf") and Path(item["pdf"]).exists() else self._gerar_pdf(perfil, item, senha)
+            cli = dados.clientes(perfil).get(item.get("cnpj"), {})
+            emp = perfil.get("apelido") or perfil["nome"]
+            assunto = f"NFS-e nº {item['numero']} - {emp}"
+            texto = (f"Olá! Segue a NFS-e nº {item['numero']} de {emp}"
+                     + (f" ({item['unidade']})" if item.get("unidade") else "")
+                     + f", no valor de R$ {item['valor']:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+                     + f".\n\nChave de acesso: {chave}\nConsulta: https://www.nfse.gov.br/ConsultaPublica/?tpc=1&chave={chave}")
+            if via == "email":
+                email = str(cli.get("email") or "").strip()
+                webbrowser.open(f"mailto:{quote(email)}?subject={quote(assunto)}&body={quote(texto)}")
+            elif via == "whatsapp":
+                fone = digitos(cli.get("fone"))
+                if fone and not fone.startswith("55"):
+                    fone = "55" + fone
+                webbrowser.open(f"https://wa.me/{fone}?text={quote(texto)}")
+            else:
+                raise NfseErro("Opção inválida.")
+            self._mostrar_arquivo(pdf)
+            return {"estado": self.estado()}
+        return self._tratar(f)
+
+    def imprimir_nota(self, chave, senha=None):
+        def f():
+            perfil = self._perfil()
+            item = self._item(perfil, chave)
+            pdf = Path(item["pdf"]) if item.get("pdf") and Path(item["pdf"]).exists() else self._gerar_pdf(perfil, item, senha)
+            if sys.platform == "win32":
+                os.startfile(str(pdf), "print")
+            else:
+                self._abrir_direto(pdf)
+            return {"estado": self.estado()}
+        return self._tratar(f)
+
+    @staticmethod
+    def _mostrar_arquivo(p):
+        if sys.platform == "win32":
+            subprocess.Popen(["explorer", "/select,", str(p)])
 
     def consultar_no_site(self):
         """Abre a consulta pública oficial da NFS-e (endereço fixo)."""
