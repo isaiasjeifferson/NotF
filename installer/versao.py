@@ -7,8 +7,8 @@ t = tuple(int(x) for x in v.split(".")) + (0,) * (4 - len(v.split(".")))
 Path("installer/versao.txt").write_text(f"""VSVersionInfo(
   ffi=FixedFileInfo(filevers={t}, prodvers={t}),
   kids=[StringFileInfo([StringTable('041604B0', [
-    StringStruct('CompanyName', 'Notara'), StringStruct('FileDescription', 'Notara - Emissor de NFS-e'),
-    StringStruct('FileVersion', '{v}'), StringStruct('ProductName', 'Notara'), StringStruct('ProductVersion', '{v}')])]),
+    StringStruct('CompanyName', 'NotF'), StringStruct('FileDescription', 'NotF - Emissor de NFS-e'),
+    StringStruct('FileVersion', '{v}'), StringStruct('ProductName', 'NotF'), StringStruct('ProductVersion', '{v}')])]),
     VarFileInfo([VarStruct('Translation', [1046, 1200])])])
 """, encoding="utf-8")
 print(v)

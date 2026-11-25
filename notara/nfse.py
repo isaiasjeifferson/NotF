@@ -27,7 +27,7 @@ NS = "http://www.sped.fazenda.gov.br/nfse"
 DS = "http://www.w3.org/2000/09/xmldsig#"
 C14N = "http://www.w3.org/TR/2001/REC-xml-c14n-20010315"
 BRT = timezone(timedelta(hours=-3))
-VER_APLIC = f"Notara-{__version__}"[:20]
+VER_APLIC = f"NotF-{__version__}"[:20]
 OID_CNPJ = "2.16.76.1.3.3"  # ICP-Brasil: CNPJ da pessoa jurídica no certificado
 
 URLS_PADRAO = {

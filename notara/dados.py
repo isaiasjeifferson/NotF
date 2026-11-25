@@ -11,8 +11,14 @@ from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 
-APP = Path(os.environ.get("APPDATA") or Path.home() / ".config") / "Notara"
-ENTROPIA = b"Notara/credenciais/v1"
+_BASE = Path(os.environ.get("APPDATA") or Path.home() / ".config")
+APP = _BASE / "NotF"
+ENTROPIA = b"Notara/credenciais/v1"  # não mudar: protege as senhas já guardadas (nome antigo do programa)
+if not APP.exists() and (_BASE / "Notara").is_dir():  # o programa se chamava Notara: leva os dados junto
+    try:
+        (_BASE / "Notara").rename(APP)
+    except OSError:
+        APP = _BASE / "Notara"
 
 
 def _id_maquina():
@@ -56,7 +62,7 @@ def perfil_novo(cnpj, nome):
         "servico": dict(SERVICO_VAZIO),
         "apelido": "", "im": "", "ie": "", "fone": "", "email": "", "descricao_modelo": "Prestação de serviço - {mes} de {ano} - {unidade}",
         "ambiente": "teste", "teste_ok": False, "pedir_senha": False, "cert_validade": "",
-        "urls": None, "pasta_notas": str(Path.home() / "Documents" / "Notara"),
+        "urls": None, "pasta_notas": str(Path.home() / "Documents" / "NotF"),
     }
 
 

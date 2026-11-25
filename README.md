@@ -1,16 +1,16 @@
-# Notara
+# NotF
 
 Emissor de NFS-e para o Sistema Nacional da Receita. Feito para emitir várias notas de uma vez, com clientes salvos.
 
 ## Para quem usa
 
-1. Baixe `Notara-X.Y.Z-Instalar.exe` em **Releases** e abra. Não precisa ser administrador.
+1. Baixe `NotF-X.Y.Z-Instalar.exe` em **Releases** e abra. Não precisa ser administrador.
 2. Se aparecer “O Windows protegeu o computador”, clique em **Mais informações › Executar assim mesmo**.
-3. Tenha em mãos o certificado A1 da empresa (.pfx), e a senha. O serviço você procura pelo nome (ex.: “lavanderia”) na lista oficial, e o Notara indica o NBS.
-4. O Notara pede quatro coisas, uma por tela: certificado, dados da empresa, serviço e conexão.
+3. Tenha em mãos o certificado A1 da empresa (.pfx), e a senha. O serviço você procura pelo nome (ex.: “lavanderia”) na lista oficial, e o NotF indica o NBS.
+4. O NotF pede quatro coisas, uma por tela: certificado, dados da empresa, serviço e conexão.
 5. Emita uma nota em **Teste** (sem validade fiscal). Depois clique em **Ligar produção**.
 6. Em outro computador da mesma empresa: instale, importe o certificado e escolha a mesma pasta compartilhada.
-7. As atualizações aparecem no próprio programa. As notas ficam em `Documentos\Notara` e não são apagadas ao desinstalar.
+7. As atualizações aparecem no próprio programa. As notas ficam em `Documentos\NotF` e não são apagadas ao desinstalar.
 
 ### No dia a dia
 
@@ -51,4 +51,4 @@ Anexo B (lista de serviços e NBS) e Anexo VIII (correlação serviço × NBS). 
 
     python tools/gerar_catalogo.py ANEXO_B.xlsx ANEXO_VIII.xlsx
 
-e publique uma versão do Notara: o botão Buscar atualização entrega a tabela nova.
+e publique uma versão do NotF: o botão Buscar atualização entrega a tabela nova.

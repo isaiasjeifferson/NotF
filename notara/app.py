@@ -20,7 +20,8 @@ import requests
 from . import __version__, catalogo, correio, dados, importar, nfse
 from .nfse import Bloqueio, NfseErro, SemResposta, digitos
 
-REPO = "isaiasjeifferson/notara"
+REPO = "isaiasjeifferson/notara"  # nome antigo do repositório: o GitHub redireciona para o novo
+REPOS_OK = ("isaiasjeifferson/notara", "isaiasjeifferson/notf")
 ENVIO_PADRAO = {"provedor": "gmail", "servidor": "smtp.gmail.com", "porta": 587, "usuario": "", "nome_remetente": "",
                 "responder_para": "", "cc_padrao": "", "assunto": correio.ASSUNTO, "mensagem": correio.MENSAGEM, "auto": False}
 PDF_V = 3  # versão do desenho do PDF; ao mudar, os PDFs antigos são refeitos quando abertos
@@ -1067,7 +1068,7 @@ class Api:
                 xml = receita.baixar_xml(chave)
                 conteudo = self._pdf_local(xml) or receita.danfse(chave)
             if not conteudo:
-                raise NfseErro("A Receita ainda não liberou o PDF desta nota. O Notara tenta de novo sozinho; "
+                raise NfseErro("A Receita ainda não liberou o PDF desta nota. O NotF tenta de novo sozinho; "
                                "enquanto isso, a nota pode ser vista em Notas Emitidas no site do Emissor Nacional.")
             quando = datetime.strptime(item["data"], "%d/%m/%Y %H:%M")
             p = dados.pasta_notas(perfil, item["ambiente"], quando) / (dados.nome_arquivo(item["numero"], item["unidade"] or item["nome"]) + ".pdf")
@@ -1201,15 +1202,15 @@ class Api:
         try:
             r = requests.get(f"https://api.github.com/repos/{REPO}/releases/latest", timeout=6)
             if r.status_code == 404:
-                return {"erro": "Página de atualizações indisponível. Baixe a versão nova com quem distribui o Notara."}
+                return {"erro": "Página de atualizações indisponível. Baixe a versão nova com quem distribui o NotF."}
             if not r.ok:
                 return None
             d = r.json()
             versao = str(d.get("tag_name", "")).lstrip("v")
             if _versao(versao) <= _versao(__version__):
                 return {"atual": True}
-            nome = f"Notara-{versao}-Instalar.exe"
-            asset = next((a for a in d.get("assets", []) if a.get("name") == nome), None)
+            nomes = (f"NotF-{versao}-Instalar.exe", f"Notara-{versao}-Instalar.exe")
+            asset = next((a for n in nomes for a in d.get("assets", []) if a.get("name") == n), None)
             digest = str((asset or {}).get("digest") or "")
             if not asset or not digest.startswith("sha256:"):
                 return {"atual": True}
@@ -1225,10 +1226,10 @@ class Api:
             return {"ok": False, "erro": "Nenhuma atualização disponível."}
         if self._envio.locked():
             return {"ok": False, "erro": "Aguarde o envio terminar."}
-        if not u["url"].startswith(f"https://github.com/{REPO}/releases/download/"):
+        if not any(u["url"].lower().startswith(f"https://github.com/{r}/releases/download/") for r in REPOS_OK):
             return {"ok": False, "erro": "Endereço de atualização inválido."}
         try:
-            fd, destino = tempfile.mkstemp(prefix="Notara-", suffix=".exe")
+            fd, destino = tempfile.mkstemp(prefix="NotF-", suffix=".exe")
             h = hashlib.sha256()
             with os.fdopen(fd, "wb") as f, requests.get(u["url"], stream=True, timeout=60) as r:
                 r.raise_for_status()

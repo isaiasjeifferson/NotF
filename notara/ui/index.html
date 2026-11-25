@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; connect-src 'none'">
-<title>Notara</title>
+<title>NotF</title>
 <style>
 :root{
   --bg:#F5F5F7;--card:#FFF;--label:#1D1D1F;--label2:#6E6E73;--label3:#AEAEB2;
@@ -388,7 +388,7 @@ const app={
   },
   avisos(){
     const e=this.s.empresa, c=this.s.certificado||{}, out=[];
-    if(this.update) out.push(`<div class="banner info"><span class="spacer">Notara ${esc(this.update.versao)} disponível. O programa fecha e abre de novo sozinho.</span><button class="btn primary" data-a="atualizar">Atualizar</button></div>`);
+    if(this.update) out.push(`<div class="banner info"><span class="spacer">NotF ${esc(this.update.versao)} disponível. O programa fecha e abre de novo sozinho.</span><button class="btn primary" data-a="atualizar">Atualizar</button></div>`);
     if(c.erro) out.push(`<div class="banner erro"><span class="spacer">${esc(c.erro)}</span><button class="btn" data-a="trocarCert">Importar certificado</button></div>`);
     else if(c.dias!==undefined&&c.dias<0) out.push(`<div class="banner erro"><span class="spacer">O certificado venceu em ${esc(c.validade)}. Não é possível emitir.</span><button class="btn" data-a="trocarCert">Trocar certificado</button></div>`);
     else if(c.dias!==undefined&&c.dias<30) out.push(`<div class="banner warn"><span class="spacer">O certificado vence em ${esc(c.validade)}. Depois disso não será possível emitir.</span><button class="btn" data-a="trocarCert">Trocar certificado</button></div>`);
@@ -422,7 +422,7 @@ const app={
           <div class="field" id="fc-senha"><label for="c-senha">Senha</label><input id="c-senha" type="password" placeholder="Senha do certificado" autocomplete="off"><button class="olho" data-a="olho" data-alvo="c-senha" aria-label="Mostrar senha">Mostrar</button></div>
           <div class="field"><span class="lbl" id="c-guardar-l">Guardar a senha</span><span class="spacer"></span>${sw('c-guardar',c.guardar)}</div>
         </div>
-        <p class="hint">Desligado, o Notara pede a senha a cada envio. Indicado para computadores compartilhados.</p>
+        <p class="hint">Desligado, o NotF pede a senha a cada envio. Indicado para computadores compartilhados.</p>
         <div class="setup-nav">${this.s.empresas.length?'<button class="btn" data-a="sairCadastro">Cancelar</button>':''}<span class="spacer"></span>
           <button class="btn primary big" id="ok" data-a="lerCert">Continuar</button></div>`,
       ()=>`<h2>Dados da empresa</h2>
@@ -594,7 +594,7 @@ const app={
         <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">${tudo?'<path d="M5 12.5l4.5 4.5L19 7.5"/>':'<path d="M12 7v6M12 17h.01"/>'}</svg></div>
       <div class="main">
         <b style="font-size:16px">${tudo?(ok===1?'Nota emitida':`${ok} notas emitidas`):`${plural(ok,'nota emitida','notas emitidas')} · ${plural(erro,'com problema','com problema')}`}</b>
-        <div class="s" style="white-space:normal;margin-top:2px">${[ok?brl(total):'',faixa,ok?(semPdf?`PDF em preparo para ${plural(semPdf,'nota','notas')}. O Notara busca sozinho.`:'PDFs salvos na pasta.'):'',erro?'Corrija as notas marcadas e tente de novo.':''].filter(Boolean).join(' · ')}</div>
+        <div class="s" style="white-space:normal;margin-top:2px">${[ok?brl(total):'',faixa,ok?(semPdf?`PDF em preparo para ${plural(semPdf,'nota','notas')}. O NotF busca sozinho.`:'PDFs salvos na pasta.'):'',erro?'Corrija as notas marcadas e tente de novo.':''].filter(Boolean).join(' · ')}</div>
       </div>
       <div style="display:flex;gap:8px;flex:none">${ok?'<button class="btn" data-a="verHistorico">Ver no histórico</button>':''}${ok?'<button class="btn" data-a="abrirPasta">Abrir pasta</button>':''}</div></div>`;
   },
@@ -631,7 +631,7 @@ const app={
     if(st?.status==='erro'){ esq=`<div class="st erro">${ICON.erro}</div>`; extra=`<div class="err">${esc(st.msg)}</div>`; }
     if(st?.status==='incerto'){ esq=`<div class="st incerto">${ICON.erro}</div>`; extra=`<div class="err warn">${esc(st.msg)}</div>`; }
     if(st?.status==='ok'){ esq=`<div class="st ok">${ICON.ok}</div>`;
-      dir+=st.item.pdf?`<button class="link" data-a="abrirNota" data-k="${esc(st.item.chave)}" data-tipo="pdf">Nº ${esc(st.item.numero)} · PDF</button>`:`<span class="s" title="A Receita ainda não liberou o PDF. O Notara busca sozinho.">Nº ${esc(st.item.numero)} · PDF em preparo</span>`;
+      dir+=st.item.pdf?`<button class="link" data-a="abrirNota" data-k="${esc(st.item.chave)}" data-tipo="pdf">Nº ${esc(st.item.numero)} · PDF</button>`:`<span class="s" title="A Receita ainda não liberou o PDF. O NotF busca sozinho.">Nº ${esc(st.item.numero)} · PDF em preparo</span>`;
       if(st.item.aviso) extra=`<div class="err warn">${esc(st.item.aviso)}</div>`; }
     if(this.fase==='pronto'&&!st) esq='<span class="badge" title="Não selecionada neste envio">Depois</span>';
     const acoes=edit?`<button class="acao" data-a="editar" data-i="${i}" title="Editar" aria-label="Editar nota de ${rot}">${ICON.lapis}</button>
@@ -893,7 +893,7 @@ const app={
       (x.pdf||x.xml)&&['Mostrar na pasta',()=>api().abrir_nota(x.chave,'pasta')],
       ['Copiar chave de acesso',()=>{navigator.clipboard.writeText(x.chave);this.toast('Chave copiada')}],
       x.situacao==='emitida'&&'-',
-      x.situacao==='emitida'&&[x.enviado_em?'Enviar por e-mail (enviada)':'Enviar por e-mail…',()=>this.emailFolha(x)],
+      x.situacao==='emitida'&&['Enviar por e-mail',()=>this.enviarNota(x,'email')],
       x.situacao==='emitida'&&['Enviar por WhatsApp',()=>this.enviarNota(x,'whatsapp')],
       x.situacao==='emitida'&&['Imprimir',async()=>{ const r=await this.comSenha(sn=>api().imprimir_nota(x.chave,sn)); if(r&&!r.ok) this.toast(r.erro); }],
       ['Emitir de novo (clonar)',()=>this.clonarNota(x)],
@@ -965,7 +965,7 @@ const app={
         <div class="group"><div class="field"><span class="lbl">Logo</span><span class="spacer"></span>
           ${e.logo_url?`<img src="${e.logo_url}" alt="Logo" style="height:32px;max-width:120px;object-fit:contain;margin-right:12px">`:''}
           <button class="link" data-a="escolherLogo">${e.logo_url?'Trocar':'Escolher imagem'}</button>${e.logo_url?'<button class="link" style="color:var(--red);margin-left:12px" data-a="removerLogo">Remover</button>':''}</div></div>
-        <p class="hint">Aparece no seu perfil e na assinatura dos e-mails. O PDF segue o modelo oficial da Receita, sem logo próprio.</p>
+        <p class="hint">Aparece no seu perfil. O PDF segue o modelo oficial da Receita, sem logo próprio.</p>
         <div class="gt">Dados que vão em todas as notas</div>
         <div class="group">
           <div class="field" id="fa-im"><label for="a-im">Inscrição Municipal</label><input id="a-im" class="num" value="${esc(e.im||'')}" placeholder="Ex.: 6.414.179-9"></div>
@@ -1016,7 +1016,7 @@ const app={
         </details>
         <div class="gt">Sobre</div>
         <div class="group">
-          <div class="field"><span class="lbl">Versão</span><div class="val num">Notara ${esc(this.s.versao)}</div></div>
+          <div class="field"><span class="lbl">Versão</span><div class="val num">NotF ${esc(this.s.versao)}</div></div>
           <div class="field"><span class="lbl">Atualização</span><div class="val" id="a-upd">${this.update?'Versão '+esc(this.update.versao)+' disponível':''}</div>
             <button class="link" id="b-upd" data-a="${this.update?'atualizar':'buscarAtualizacao'}">${this.update?'Atualizar agora':'Buscar atualização'}</button></div>
         </div>`,
@@ -1042,7 +1042,8 @@ const app={
         <p class="hint">Vão sozinhos: {numero}, {cliente}, {unidade}, {valor}, {chave}, {mes}, {empresa}. O PDF e o XML seguem anexados.</p>
         <div class="group" style="margin-top:12px"><div class="field"><span class="lbl" id="m-auto-l">Enviar sozinho ao emitir</span><span class="spacer"></span>${sw('m-auto',m.auto)}</div></div>
         <p class="hint">Cada nota emitida em produção vai para o e-mail do cliente (e os CCs dele) logo depois de autorizada. Clientes sem e-mail ficam de fora.</p>`;
-    const nomes={empresa:'Empresa',notas:'Notas',email:'E-mail',geral:'Geral'};
+    delete panes.email; // envio direto por conta de e-mail fica desligado por enquanto
+    const nomes={empresa:'Empresa',notas:'Notas',geral:'Geral'};
     this.folha('Ajustes','',`<div class="tabs"><div class="seg" role="tablist" id="a-tabs">${Object.entries(nomes).map(([k,v])=>`<button role="tab" data-v="${k}" aria-selected="false">${v}</button>`).join('')}</div></div>
       ${Object.entries(panes).map(([k,h])=>`<div class="a-pane" role="tabpanel" data-v="${k}">${h}</div>`).join('')}`,'Concluído',()=>this.fechar(),{soOk:true});
     this.irAba(aba); this.aplicarTema(this.tema);
@@ -1133,7 +1134,7 @@ const app={
     const r=await api().testar_envio_email(); if(!$('#m-teste-r')) return; v.textContent=r.ok?'Conectado':''; v.style.color=r.ok?'var(--green)':''; if(!r.ok) this.toast(r.erro); },
   async emailFolha(x){
     const r=await api().dados_envio(x.chave); if(!r.ok) return this.toast(r.erro);
-    if(!r.configurado) return this.confirmar('Enviar pelo Notara?','Para mandar com o PDF e o XML anexados, ligue a sua conta de e-mail em Ajustes › E-mail (leva 2 minutos). Ou abra no seu programa de e-mail e anexe o PDF à mão.',
+    if(!r.configurado) return this.confirmar('Enviar pelo NotF?','Para mandar com o PDF e o XML anexados, ligue a sua conta de e-mail em Ajustes › E-mail (leva 2 minutos). Ou abra no seu programa de e-mail e anexe o PDF à mão.',
       'Configurar',false,()=>this.ajustes('email'),()=>this.enviarNota(x,'email'),'Abrir no meu e-mail');
     this.folha('Enviar nota por e-mail',`Nº ${esc(x.numero)} · ${esc(x.unidade||x.nome)} · PDF e XML anexados`,`
       <div class="group">
@@ -1208,7 +1209,7 @@ const app={
   async verRegistro(){
     const r=await api().registro(60);
     const abrir=()=>this.folha2('Detalhes técnicos','Envie este texto ao suporte, se precisar.',`<pre id="reg-txt" style="white-space:pre-wrap;word-break:break-word;font:12px/1.45 Consolas,ui-monospace,monospace;background:var(--fill2);padding:12px;border-radius:10px;max-height:46vh;overflow:auto;user-select:text">${esc(r.texto||'Nenhum registro ainda.')}</pre>`,
-      'Copiar',()=>{ navigator.clipboard.writeText(`Notara ${r.versao}\n${r.texto}`); this.toast('Copiado'); },{cancelar:'Fechar'});
+      'Copiar',()=>{ navigator.clipboard.writeText(`NotF ${r.versao}\n${r.texto}`); this.toast('Copiado'); },{cancelar:'Fechar'});
     abrir();
   },
   async pasta(_,el){ const p=await api().escolher_pasta(); if(!p) return; const v=$('#'+el.dataset.alvo); v.dataset.valor=p; v.textContent=p;
@@ -1242,7 +1243,7 @@ const app={
   },
   async atualizar(){
     this.fechar();
-    this.folha2(`Atualizando para a versão ${esc(this.update?.versao||'')}`,'Baixando e instalando. O Notara fecha e abre de novo sozinho, em poucos segundos.',
+    this.folha2(`Atualizando para a versão ${esc(this.update?.versao||'')}`,'Baixando e instalando. O NotF fecha e abre de novo sozinho, em poucos segundos.',
       '<div class="trilho" style="margin:6px 0 10px"><i style="width:100%"></i></div>','Aguarde',()=>{},{soOk:true});
     $('#sheet2-ok').disabled=true;
     const r=await api().instalar_atualizacao();

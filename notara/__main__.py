@@ -1,4 +1,4 @@
-"""Abre a janela do Notara."""
+"""Abre a janela do NotF."""
 import sys
 from pathlib import Path
 
@@ -25,7 +25,7 @@ def _fundo():
 
 
 def verificar():
-    """Autoteste do programa empacotado (usado na publicação): tudo o que o Notara carrega precisa existir."""
+    """Autoteste do programa empacotado (usado na publicação): tudo o que o NotF carrega precisa existir."""
     from notara import catalogo, danfse, importar, nfse  # noqa: F401
     assert catalogo.servicos("lavanderia"), "tabela de serviços"
     exemplo = BASE / "notara" / "nfse_exemplo.xml"
@@ -33,7 +33,7 @@ def verificar():
     nfse.validar.__call__  # schemas carregados sob demanda
     from lxml import etree
     etree.XMLSchema(etree.parse(str(nfse.SCHEMAS / "DPS_v1.01.xsd")))
-    print("Notara OK")
+    print("NotF OK")
 
 
 def main():
@@ -45,7 +45,7 @@ def main():
             sys.exit(1)
         return
     api = Api()
-    api._janela = webview.create_window("Notara", str(UI), js_api=api, width=1100, height=760,
+    api._janela = webview.create_window("NotF", str(UI), js_api=api, width=1100, height=760,
                                        min_size=(860, 580), background_color=_fundo())
     webview.start(private_mode=True)  # sem cache/cookies em disco
 

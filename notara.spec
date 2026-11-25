@@ -7,6 +7,6 @@ a = Analysis(["run.py"], datas=[("notara/ui", "notara/ui"), ("notara/schemas", "
                                 ("tests/nfse_exemplo.xml", "notara")],
              hiddenimports=ocultos, excludes=["tkinter", "pytest"])
 pyz = PYZ(a.pure)
-exe = EXE(pyz, a.scripts, [], exclude_binaries=True, name="Notara", icon="notara/icone.ico",
+exe = EXE(pyz, a.scripts, [], exclude_binaries=True, name="NotF", icon="notara/icone.ico",
           console=False, version="installer/versao.txt")
-coll = COLLECT(exe, a.binaries, a.datas, name="Notara")
+coll = COLLECT(exe, a.binaries, a.datas, name="NotF")
