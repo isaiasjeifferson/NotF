@@ -211,6 +211,12 @@ def montar_dps(empresa, nota, numero, ambiente, quando=None):
 
     prest = _el(inf, "prest")
     _el(prest, "CNPJ", digitos(empresa["cnpj"]))
+    if digitos(empresa.get("im")):
+        _el(prest, "IM", digitos(empresa["im"])[:15])
+    if 6 <= len(digitos(empresa.get("fone"))) <= 20:
+        _el(prest, "fone", digitos(empresa["fone"]))
+    if "@" in str(empresa.get("email") or ""):
+        _el(prest, "email", empresa["email"].strip()[:80])
     rt = _el(prest, "regTrib")
     _el(rt, "opSimpNac", empresa["op_simples"])
     if int(empresa["op_simples"]) == 3:
@@ -219,8 +225,26 @@ def montar_dps(empresa, nota, numero, ambiente, quando=None):
 
     toma = _el(inf, "toma")
     doc = digitos(nota["cnpj"])
+    cli = nota.get("cliente") or {}
     _el(toma, "CNPJ" if len(doc) == 14 else "CPF", doc)
+    if digitos(cli.get("im")):
+        _el(toma, "IM", digitos(cli["im"])[:15])
     _el(toma, "xNome", nota["nome"].strip()[:300])
+    cep_t, cmun_t = digitos(cli.get("cep")), digitos(cli.get("cmun"))
+    if len(cep_t) == 8 and len(cmun_t) == 7 and cli.get("logradouro") and cli.get("bairro"):
+        end = _el(toma, "end")
+        en = _el(end, "endNac")
+        _el(en, "cMun", cmun_t)
+        _el(en, "CEP", cep_t)
+        _el(end, "xLgr", cli["logradouro"].strip()[:255])
+        _el(end, "nro", (str(cli.get("numero") or "").strip() or "S/N")[:60])
+        if str(cli.get("complemento") or "").strip():
+            _el(end, "xCpl", cli["complemento"].strip()[:156])
+        _el(end, "xBairro", cli["bairro"].strip()[:60])
+    if 6 <= len(digitos(cli.get("fone"))) <= 20:
+        _el(toma, "fone", digitos(cli["fone"]))
+    if "@" in str(cli.get("email") or ""):
+        _el(toma, "email", cli["email"].strip()[:80])
 
     serv = _el(inf, "serv")
     _el(_el(serv, "locPrest"), "cLocPrestacao", cmun)
@@ -231,6 +255,8 @@ def montar_dps(empresa, nota, numero, ambiente, quando=None):
     _el(cs, "xDescServ", nota["descricao"].strip()[:2000])
     if s.get("nbs"):
         _el(cs, "cNBS", digitos(s["nbs"]))
+    if str(nota.get("info") or "").strip():
+        _el(_el(serv, "infoCompl"), "xInfComp", nota["info"].strip()[:2000])
 
     val = _el(inf, "valores")
     _el(_el(val, "vServPrest"), "vServ", dinheiro(nota["valor"]))

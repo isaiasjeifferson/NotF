@@ -289,3 +289,24 @@ def test_assinatura_confere_em_verificador_independente(ambiente, tmp_path):
         (tmp_path / nome).write_bytes(xml)
         r = subprocess.run(["java", "-cp", str(tmp_path), "Verifica", str(tmp_path / nome)], capture_output=True, text=True)
         assert "=> VALIDA" in r.stdout, r.stdout + r.stderr
+
+
+def test_dados_completos_do_cliente_e_da_empresa_na_nota(ambiente):
+    """Cadastro completo vai para a nota e o XML continua no padrão da Receita."""
+    n = ambiente.nfse
+    cert = n.Certificado(pfx(), "1234")
+    emp = {**PERFIL, "im": "6.414.179-9", "fone": "(11) 98181-9330", "email": "contato@empresa.com.br"}
+    cli = {"im": "3.631.921-0", "email": "cliente@x.com", "fone": "1133334444", "cep": "08246-061",
+           "logradouro": "R JUCUPEMA", "numero": "794", "bairro": "PARADA XV DE NOVEMBRO", "cmun": "3550308"}
+    nota = {**NOTA, "cliente": cli, "info": "Contrato 123/2026"}
+    xml = n.assinar(n.montar_dps(emp, nota, 1, "producao")[0], cert)
+    n.validar(xml)
+    for trecho in (b"<IM>64141799</IM>", b"<IM>36319210</IM>", b"<CEP>08246061</CEP>", b"<xInfComp>Contrato 123/2026</xInfComp>",
+                   b"<email>cliente@x.com</email>", b"<cLocPrestacao>3550308</cLocPrestacao>"):
+        assert trecho in xml, trecho
+
+
+def test_pdf_gerado_a_partir_do_xml_da_nfse(ambiente):
+    from notara import danfse
+    pdf = danfse.gerar((AQUI / "nfse_exemplo.xml").read_bytes())
+    assert pdf[:4] == b"%PDF" and len(pdf) > 3000

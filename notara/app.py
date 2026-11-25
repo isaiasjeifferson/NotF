@@ -17,12 +17,13 @@ from pathlib import Path
 
 import requests
 
-from . import __version__, dados, importar, nfse
+from . import __version__, danfse, dados, importar, nfse
 from .nfse import Bloqueio, NfseErro, SemResposta, digitos
 
 REPO = "isaiasjeifferson/notara"
 MOTIVOS = {"1": "Erro na emissão", "2": "Serviço não prestado", "9": "Outro motivo"}
-CAMPOS_EMPRESA = ("nome", "apelido", "municipio_ibge", "municipio", "descricao_modelo", "pasta_notas")
+CAMPOS_EMPRESA = ("nome", "apelido", "municipio_ibge", "municipio", "descricao_modelo", "pasta_notas",
+                  "im", "ie", "fone", "email")
 
 LOG = dados.APP / "notara.log"
 logging.basicConfig(filename=LOG, level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s", encoding="utf-8")
@@ -203,7 +204,13 @@ class Api:
                 return None
             d = r.json()
             mei, simples = d.get("opcao_pelo_mei"), d.get("opcao_pelo_simples")
+            fone = digitos(d.get("ddd_telefone_1"))
             return {"nome": str(d.get("razao_social") or "")[:150],
+                    "cep": digitos(d.get("cep"))[:8], "logradouro": " ".join(x for x in (str(d.get("descricao_tipo_de_logradouro") or ""), str(d.get("logradouro") or "")) if x).strip()[:255],
+                    "numero": str(d.get("numero") or "")[:60], "complemento": str(d.get("complemento") or "")[:150],
+                    "bairro": str(d.get("bairro") or "")[:60], "cmun": str(d.get("codigo_municipio_ibge") or "")[:7],
+                    "email": str(d.get("email") or "").lower()[:80] if "@" in str(d.get("email") or "") else "",
+                    "fone": fone if 10 <= len(fone) <= 11 else "",
                     "apelido": str(d.get("nome_fantasia") or "")[:60],
                     "municipio_ibge": str(d.get("codigo_municipio_ibge") or "")[:7],
                     "municipio": f"{str(d.get('municipio') or '').title()}/{d.get('uf') or ''}".strip("/")[:60],
@@ -436,6 +443,39 @@ class Api:
             dados.remover_cliente(p, digitos(doc), unidade)
         return {"ok": True}
 
+    def cliente(self, doc):
+        p = dados.empresa()
+        doc = digitos(doc)
+        if not p or len(doc) not in (11, 14):
+            return {"ok": False}
+        c = dados.clientes(p).get(doc, {})
+        return {"ok": True, "cliente": {"cnpj": doc, "nome": c.get("nome", ""),
+                                        **{k: c.get(k, "") for k in dados.CAMPOS_CLIENTE}}}
+
+    def salvar_dados_cliente(self, doc, campos):
+        """Cadastro do cliente: o que estiver preenchido vai automaticamente nas notas dele."""
+        p = dados.empresa()
+        doc = digitos(doc)
+        if not p or len(doc) not in (11, 14) or not isinstance(campos, dict):
+            return {"ok": False, "erro": "Cliente inválido."}
+        nome = str(campos.get("nome") or "").strip()
+        cep = digitos(campos.get("cep"))
+        if cep and len(cep) != 8:
+            return {"ok": False, "erro": "O CEP tem 8 números.", "campo": "cep"}
+        if campos.get("email") and "@" not in str(campos["email"]):
+            return {"ok": False, "erro": "E-mail inválido.", "campo": "email"}
+        extra = {k: campos.get(k, "") for k in dados.CAMPOS_CLIENTE if k in campos}
+        if "cep" in extra:
+            extra["cep"] = cep
+        dados.salvar_cliente(p, doc, nome, extra=extra)
+        return {"ok": True}
+
+    def completar_cliente_pelo_cnpj(self, doc):
+        info = self._consultar_cnpj(digitos(doc)) if len(digitos(doc)) == 14 else None
+        if not info:
+            return {"ok": False, "erro": "Não foi possível consultar o CNPJ agora."}
+        return {"ok": True, "dados": {k: info.get(k, "") for k in ("nome", *dados.CAMPOS_CLIENTE) if k != "info"}}
+
     def renomear_cliente(self, doc, nome):
         p = dados.empresa()
         nome = str(nome or "").strip()[:150]
@@ -477,9 +517,11 @@ class Api:
                 return cli[doc]["nome"]
             if len(doc) != 14:
                 return ""
-            nome = (self._consultar_cnpj(doc) or {}).get("nome", "")
+            info = self._consultar_cnpj(doc) or {}
+            nome = info.get("nome", "")
             if nome and p:
-                dados.salvar_cliente(p, doc, nome)
+                extra = {k: info.get(k, "") for k in dados.CAMPOS_CLIENTE if k != "info"}
+                dados.salvar_cliente(p, doc, nome, extra=extra)
             return nome
         except Exception:
             log.exception("buscar nome")
@@ -532,7 +574,7 @@ class Api:
                 except Exception:
                     log.exception("emissão")
                     self._evento("progresso", {"i": i, "status": "erro", "msg": "Algo deu errado. Detalhes em notara.log."})
-            if ok and perfil["ambiente"] == "teste" and not perfil.get("teste_ok"):
+            if ok and not perfil.get("teste_ok"):  # emissão bem-sucedida (teste ou produção) comprova a configuração
                 try:
                     dados.salvar_empresa({"cnpj": perfil["cnpj"], "teste_ok": True})
                     dados.publicar_perfil({**perfil, "teste_ok": True})
@@ -564,7 +606,9 @@ class Api:
         if not desc:
             raise NfseErro("Informe a descrição.")
         unidade = str(nota.get("unidade") or "").strip()
-        nota = {"cnpj": doc, "nome": nome, "descricao": desc, "valor": str(valor)}
+        cad = dados.clientes(perfil).get(doc, {})
+        info = str(nota.get("info") or cad.get("info") or "").strip()
+        nota = {"cnpj": doc, "nome": nome, "descricao": desc, "valor": str(valor), "cliente": cad, "info": info}
 
         quando = nfse.agora()
         amb = perfil["ambiente"]
@@ -626,7 +670,7 @@ class Api:
             if xml_nfse:
                 (pasta / f"{nome}.xml").write_bytes(xml_nfse)
                 item["xml"] = str(pasta / f"{nome}.xml")
-            conteudo = receita.danfse(chave)
+            conteudo = self._pdf_local(xml_nfse) or receita.danfse(chave)
             if conteudo:
                 (pasta / f"{nome}.pdf").write_bytes(conteudo)
                 item["pdf"] = str(pasta / f"{nome}.pdf")
@@ -636,6 +680,17 @@ class Api:
         if not item["pdf"]:
             self._pdf_depois(perfil, receita, item)
         return item
+
+    @staticmethod
+    def _pdf_local(xml_nfse):
+        """PDF gerado a partir do XML autorizado: na hora, sem depender do download da Receita."""
+        if not xml_nfse:
+            return None
+        try:
+            return danfse.gerar(xml_nfse)
+        except Exception:
+            log.exception("gerar PDF local")
+            return None
 
     def _pdf_depois(self, perfil, receita, item):
         """A Receita às vezes leva alguns minutos para liberar o PDF: tenta de novo em segundo plano."""
@@ -691,7 +746,14 @@ class Api:
         def f():
             perfil = self._perfil()
             item = self._item(perfil, chave)
-            conteudo = self._receita(perfil, self._cert(perfil, senha), item["ambiente"]).danfse(chave)
+            xml = b""
+            if item.get("xml") and Path(item["xml"]).exists():
+                xml = Path(item["xml"]).read_bytes()
+            conteudo = self._pdf_local(xml)
+            if not conteudo:
+                receita = self._receita(perfil, self._cert(perfil, senha), item["ambiente"])
+                xml = receita.baixar_xml(chave)
+                conteudo = self._pdf_local(xml) or receita.danfse(chave)
             if not conteudo:
                 raise NfseErro("A Receita ainda não liberou o PDF desta nota. O Notara tenta de novo sozinho; "
                                "enquanto isso, a nota pode ser vista em Notas Emitidas no site do Emissor Nacional.")

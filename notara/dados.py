@@ -40,7 +40,7 @@ def perfil_novo(cnpj, nome):
         "cnpj": cnpj, "nome": nome, "municipio_ibge": "", "municipio": "",
         "op_simples": 3, "aliquota_simples": 0.0,
         "servico": dict(SERVICO_VAZIO),
-        "apelido": "", "descricao_modelo": "Prestação de serviço - {mes} de {ano} - {unidade}",
+        "apelido": "", "im": "", "ie": "", "fone": "", "email": "", "descricao_modelo": "Prestação de serviço - {mes} de {ano} - {unidade}",
         "ambiente": "teste", "teste_ok": False, "pedir_senha": False, "cert_validade": "",
         "urls": None, "pasta_notas": str(Path.home() / "Documents" / "Notara"),
     }
@@ -249,13 +249,20 @@ def clientes(perfil):
     return {doc: (c if isinstance(c, dict) else {"nome": c, "unidades": {}, "usado": ""}) for doc, c in bruto.items()}
 
 
-def salvar_cliente(perfil, doc, nome, unidade=None, valor=None, descricao=None):
+CAMPOS_CLIENTE = ("im", "email", "fone", "cep", "logradouro", "numero", "complemento", "bairro",
+                  "cmun", "municipio", "info")
+
+
+def salvar_cliente(perfil, doc, nome, unidade=None, valor=None, descricao=None, extra=None):
     pasta = pasta_dados(perfil)
     with trava(pasta):
         todos = {d: (c if isinstance(c, dict) else {"nome": c, "unidades": {}, "usado": ""})
                  for d, c in ler_json(pasta / "clientes.json", {}).items()}
         c = todos.setdefault(doc, {"nome": nome, "unidades": {}, "usado": ""})
         c["nome"] = nome or c["nome"]
+        for k, v in (extra or {}).items():
+            if k in CAMPOS_CLIENTE:
+                c[k] = str(v or "").strip()
         if valor is not None:
             c["usado"] = datetime.now().strftime("%Y-%m-%d %H:%M")
             c["unidades"][unidade or ""] = {"valor": float(valor), "descricao": descricao or ""}

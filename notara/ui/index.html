@@ -770,8 +770,11 @@ const app={
     $('#clientes').innerHTML=`<button class="voltar" data-a="fecharCliente">‹ Clientes</button>
       <div style="display:flex;gap:14px;align-items:center;margin-top:10px">${this.av(c,true)}<div class="main"><div class="t" style="font-size:19px;white-space:normal;line-height:1.25">${esc(c.nome)}</div><div class="s">${fmtDoc(c.cnpj)}</div></div>
         <button class="btn" data-a="renomearCliente" data-c="${esc(cnpj)}">Renomear</button><button class="btn primary" data-a="novaNotaCliente" data-c="${esc(cnpj)}">Nova nota</button></div>
-      <div class="stats"><div><b>${c.notas}</b><span>notas emitidas</span></div><div><b>${brl(c.total)}</b><span>total emitido</span></div>
+      <div class="stats" id="cli-stats"><div><b>${c.notas}</b><span>notas emitidas</span></div><div><b>${brl(c.total)}</b><span>total emitido</span></div>
         <div><b>${brl(media)}</b><span>valor médio</span></div><div><b>${esc(c.ultima?c.ultima.split(' ')[0]:'—')}</b><span>última nota</span></div></div>
+      <div class="gt"><span>Dados do cliente · vão em todas as notas dele</span><button class="link" data-a="completarCliente" data-c="${esc(cnpj)}">Preencher pelo CNPJ</button></div>
+      <div class="group" id="cli-dados"><div class="field"><span class="s">Carregando…</span></div></div>
+      <p class="hint">Só o CNPJ e o nome são obrigatórios. O que estiver preenchido aqui vai sozinho nas próximas notas. Salva ao sair de cada campo.</p>
       ${c.unidades.length?`<div class="gt"><span>Unidades</span>${c.unidades.length>1?`<button class="link" data-a="todasUnidadesCliente" data-c="${esc(cnpj)}">Adicionar todas à lista</button>`:''}</div>
       <div class="group">${c.unidades.map((u,k)=>`<div class="row"><div class="main"><div class="t">${esc(u.nome||c.nome)}</div><div class="s">${esc(u.descricao||'')}</div></div>
         <div class="v num">${brl(u.valor)}</div><button class="link" data-a="unidadeCliente" data-c="${esc(cnpj)}" data-k="${k}">Adicionar à lista</button></div>`).join('')}</div>`:''}
@@ -779,6 +782,28 @@ const app={
       <div class="group">${h.map((x,k)=>`<div class="row"><div class="main"><div class="t">${esc(x.unidade||x.nome)}${x.situacao==='cancelada'?'<span class="badge cancel">Cancelada</span>':''}${x.situacao==='pendente'?'<span class="badge teste">A confirmar</span>':''}</div>
         <div class="s">${x.numero?'Nº '+esc(x.numero)+' · ':''}${esc(x.data)}</div></div><div class="v num">${brl(x.valor)}</div>
         ${x.pdf?`<button class="link" data-a="abrirNota" data-k="${esc(x.chave)}" data-tipo="pdf">PDF</button>`:''}</div>`).join('')||'<p class="hint" style="padding:16px">Nenhuma nota emitida em produção para este cliente.</p>'}</div>`;
+    this.carregarDadosCliente(cnpj);
+  },
+  async carregarDadosCliente(cnpj){
+    const r=await api().cliente(cnpj); if(!r.ok||!$('#cli-dados')) return; const c=r.cliente;
+    const F=[['nome','Nome / Razão social',''],['im','Inscrição Municipal','Opcional'],['email','E-mail','Opcional'],['fone','Telefone','Com DDD'],
+      ['cep','CEP','8 números'],['logradouro','Endereço','Rua, avenida…'],['numero','Número',''],['complemento','Complemento','Opcional'],
+      ['bairro','Bairro',''],['cmun','Código do município','IBGE · 7 números']];
+    $('#cli-dados').innerHTML=F.map(([k,r,ph])=>`<div class="field" id="fc-${k}"><label for="c-${k}">${r}</label><input id="c-${k}" data-k="${k}" value="${esc(c[k]||'')}" placeholder="${ph}"></div>`).join('')
+      +`<div class="field col" id="fc-info"><label for="c-info">Informações complementares</label><input id="c-info" data-k="info" value="${esc(c.info||'')}" placeholder="Ex.: Contrato nº 123/2026 · Empenho 456"></div>`;
+    $$('#cli-dados input').forEach(i=>i.addEventListener('change',async()=>{
+      const st=$('#cli-dados').closest('section'); const r=await api().salvar_dados_cliente(cnpj,{[i.dataset.k]:i.value});
+      if(!r.ok) return this.invalido('fc-'+(r.campo||i.dataset.k),r.erro);
+      this._clis=null; this.carregarClientes(); this.toast('Cliente atualizado');
+    }));
+  },
+  async completarCliente(_,el){
+    const cnpj=el.dataset.c; el.disabled=true; el.textContent='Consultando…';
+    const r=await api().completar_cliente_pelo_cnpj(cnpj); el.disabled=false; el.textContent='Preencher pelo CNPJ';
+    if(!r.ok) return this.toast(r.erro);
+    const vazios={}; for(const [k,v] of Object.entries(r.dados)){ const i=$('#c-'+k); if(i&&!i.value&&v){ i.value=v; vazios[k]=v; } }
+    if(!Object.keys(vazios).length) return this.toast('Nada novo para preencher.');
+    await api().salvar_dados_cliente(cnpj,vazios); this.toast(`${plural(Object.keys(vazios).length,'campo preenchido','campos preenchidos')} pelo CNPJ`);
   },
   async novaNotaCliente(_,el){ const c=this._clis.find(x=>x.cnpj===el.dataset.c); this.aba('emitir');
     this.editar(null,null,{cnpj:c.cnpj,nome:c.nome,unidade:'',valor:0,descricao:await api().descricao('')}); },
@@ -826,6 +851,7 @@ const app={
       ['Copiar chave de acesso',()=>{navigator.clipboard.writeText(x.chave);this.toast('Chave copiada')}],
       ['Consultar no site da Receita',()=>{navigator.clipboard.writeText(x.chave);api().consultar_no_site();this.toast('Chave copiada. Cole no campo da consulta.')}],
       x.situacao==='emitida'&&'-',
+      x.situacao==='emitida'&&['Cancelar e corrigir…',()=>this.cancelar(x,true)],
       x.situacao==='emitida'&&['Cancelar nota…',()=>this.cancelar(x),'red'],
     ]);
   },
@@ -837,8 +863,9 @@ const app={
     this.toast(r.emitida?'A nota foi emitida e está no histórico.':'A Receita não recebeu essa nota. Pode enviar de novo.');
   },
   async baixarPdf(chave){ const r=await this.comSenha(s=>api().baixar_pdf(chave,s)); if(!r) return; if(r.ok){ this.s=r.estado; this.renderHistorico(); } else this.toast(r.erro); },
-  cancelar(x){
-    this.folha(`Cancelar a nota nº ${esc(x.numero)}?`,'O cancelamento não pode ser desfeito.',`
+  cancelar(x,corrigir){
+    this.folha(corrigir?`Cancelar e corrigir a nota nº ${esc(x.numero)}?`:`Cancelar a nota nº ${esc(x.numero)}?`,
+      corrigir?'A nota é cancelada na Receita e volta para a lista, pronta para você ajustar e emitir de novo.':'O cancelamento não pode ser desfeito.',`
       <div class="group">
         <div class="field"><span class="lbl">Cliente</span><div class="val">${esc(x.nome)}</div></div>
         <div class="field"><span class="lbl">Valor</span><div class="val num">${brl(x.valor)}</div></div>
@@ -846,12 +873,18 @@ const app={
       </div>
       <div class="gt"><span>Explique em poucas palavras</span><span id="k-cont">mín. 15 caracteres</span></div>
       <div class="group"><div class="field" id="fk-txt"><textarea id="k-txt" maxlength="255" aria-label="Explicação" placeholder="Ex.: valor digitado errado, a nota será emitida de novo."></textarea></div></div>`,
-      'Cancelar nota', async()=>{
+      corrigir?'Cancelar e corrigir':'Cancelar nota', async()=>{
         const mot=$('#k-mot').value, txt=$('#k-txt').value.trim();
         if(txt.length<15) return this.invalido('fk-txt','Use pelo menos 15 caracteres.');
         const r=await this.comSenha(s=>api().cancelar(x.chave,mot,txt,s)); if(!r) return;
         if(!r.ok) return this.toast(r.erro);
-        this.s=r.estado; this.fechar(); this.renderHistorico(); this.toast('Nota cancelada');
+        this.s=r.estado; this.fechar(); this.renderHistorico();
+        if(corrigir){
+          if(this.fase!=='lista') this.voltarLista();
+          this.notas.push({cnpj:x.cnpj,nome:x.nome,unidade:x.unidade,descricao:x.descricao,valor:x.valor,sel:true});
+          this.aba('emitir'); this.render(); this.toast('Nota cancelada. Ajuste e emita de novo.');
+          this.editar(null,{dataset:{i:String(this.notas.length-1)}});
+        } else this.toast('Nota cancelada');
       },{cancelar:'Manter nota',destrutivo:true});
     const t=$('#k-txt'); t.oninput=()=>$('#k-cont').textContent=t.value.trim().length<15?`mín. 15 caracteres (${t.value.trim().length})`:`${t.value.length}/255`; t.focus();
   },
@@ -871,17 +904,25 @@ const app={
           <div class="field"><label for="a-reg">Regime</label><select id="a-reg">${[[3,'Simples Nacional'],[2,'MEI'],[1,'Outro']].map(([v,t])=>`<option value="${v}" ${e.op_simples==v?'selected':''}>${t}</option>`).join('')}</select></div>
           <div class="field" id="fa-aliq"><label for="a-aliq">Alíquota do Simples</label><input id="a-aliq" class="num" value="${fmtNum(e.aliquota_simples)}"><span class="unit">%</span></div>
         </div>
+        <div class="gt">Dados que vão em todas as notas</div>
+        <div class="group">
+          <div class="field" id="fa-im"><label for="a-im">Inscrição Municipal</label><input id="a-im" class="num" value="${esc(e.im||'')}" placeholder="Ex.: 6.414.179-9"></div>
+          <div class="field" id="fa-fone"><label for="a-fone">Telefone</label><input id="a-fone" class="num" value="${esc(e.fone||'')}" placeholder="Com DDD"></div>
+          <div class="field" id="fa-email"><label for="a-email">E-mail</label><input id="a-email" value="${esc(e.email||'')}" placeholder="Opcional"></div>
+          <div class="field"><label for="a-ie">Inscrição Estadual</label><input id="a-ie" class="num" value="${esc(e.ie||'')}" placeholder="Opcional"></div>
+        </div>
+        <p class="hint">A Inscrição Estadual fica guardada, mas não aparece na nota de serviço: ela só existe na nota de produto.</p>
         <div class="gt">Certificado digital</div>
         <div class="group">
           <div class="field"><span class="lbl">Certificado</span><div class="val">${certTxt}</div><button class="link" data-a="trocarCert">Trocar</button></div>
           <div class="field"><span class="lbl" id="a-guardar-l">Guardar a senha</span><span class="spacer"></span>${sw('a-guardar',!e.pedir_senha)}</div>
         </div>`,
       notas:`<div class="group">
-          <div class="field"><span class="lbl">Ambiente</span><span class="spacer"></span>${segBtns('a-amb',[['teste','Teste'],['producao','Produção']],e.ambiente,{producao:!e.teste_ok})}</div>
+          <div class="field"><span class="lbl">Ambiente</span><span class="spacer"></span>${segBtns('a-amb',[['teste','Teste'],['producao','Produção']],e.ambiente,{producao:!e.teste_ok&&e.ambiente!=='producao'})}</div>
           <div class="field"><span class="lbl">Conexão com a Receita</span><span class="spacer"></span><button class="link" data-a="testar" id="b-testar">Testar</button></div>
           <div id="a-con" hidden style="padding:4px 16px 12px"></div>
         </div>
-        <p class="hint">${e.teste_ok?'Na produção, as notas têm validade fiscal.':'Emita uma nota de teste para liberar a produção. <button class="link" data-a="producaoSemTeste">O ambiente de teste não funciona?</button>'}</p>
+        <p class="hint">${e.ambiente==='producao'?'Na produção, as notas têm validade fiscal.':e.teste_ok?'Teste concluído. Na produção, as notas têm validade fiscal.':'Emita uma nota de teste para liberar a produção. <button class="link" data-a="producaoSemTeste">O ambiente de teste não funciona?</button>'}</p>
         <div class="gt">Serviço</div>
         <div class="group">
           <div class="field" id="fa-nac"><label for="a-nac">Código do serviço</label><input id="a-nac" class="num" value="${esc(s.cod_nacional)}"></div>
@@ -934,6 +975,8 @@ const app={
       'a-mun':()=>({municipio:$('#a-mun').value.trim()}), 'a-ibge':()=>({municipio_ibge:dig($('#a-ibge').value)}),
       'a-reg':()=>({op_simples:+$('#a-reg').value}), 'a-aliq':()=>({aliquota_simples:parseValor($('#a-aliq').value)}),
       'a-guardar':()=>({pedir_senha:!swOn('a-guardar')}),
+      'a-im':()=>({im:$('#a-im').value.trim()}), 'a-fone':()=>({fone:$('#a-fone').value.trim()}),
+      'a-email':()=>({email:$('#a-email').value.trim()}), 'a-ie':()=>({ie:$('#a-ie').value.trim()}),
       'a-nac':srv,'a-cmun':srv,'a-nbs':srv,'a-ret':srv, 'a-modelo':()=>({descricao_modelo:$('#a-modelo').value.trim()}),
       'u-producao-sefin':urls,'u-producao-adn':urls,'u-teste-sefin':urls,'u-teste-adn':urls,
     };
@@ -982,7 +1025,7 @@ const app={
     return html;
   },
   async testar(){ const v=$('#a-con'), b=$('#b-testar'); v.hidden=false; v.innerHTML='<div class="spin" style="margin-top:8px"></div>'; b.disabled=true;
-    const r=await this.comSenha(s=>api().testar_conexao(s)); if(!$('#a-con')) return; b.disabled=false;
+    const amb=this.s.empresa.ambiente, r=await this.comSenha(s=>api().testar_conexao(s,amb)); if(!$('#a-con')) return; b.disabled=false;
     $('#a-con').innerHTML=r?this.resultadoConexao(r):''; },
   async verRegistro(){
     const r=await api().registro(60);
