@@ -6,7 +6,7 @@ Emissor de NFS-e para o Sistema Nacional da Receita. Feito para emitir várias n
 
 1. Baixe `Notara-X.Y.Z-Instalar.exe` em **Releases** e abra. Não precisa ser administrador.
 2. Se aparecer “O Windows protegeu o computador”, clique em **Mais informações › Executar assim mesmo**.
-3. Tenha em mãos o certificado A1 da empresa (.pfx), a senha e o código do serviço (está na última nota ou com a contabilidade).
+3. Tenha em mãos o certificado A1 da empresa (.pfx), e a senha. O serviço você procura pelo nome (ex.: “lavanderia”) na lista oficial, e o Notara indica o NBS.
 4. O Notara pede quatro coisas, uma por tela: certificado, dados da empresa, serviço e conexão.
 5. Emita uma nota em **Teste** (sem validade fiscal). Depois clique em **Ligar produção**.
 6. Em outro computador da mesma empresa: instale, importe o certificado e escolha a mesma pasta compartilhada.
@@ -43,3 +43,12 @@ python run.py
 ```
 
 Para publicar: aumente a versão em `notara/__init__.py` e envie para `main`. O GitHub Actions testa, gera o instalador e publica em Releases (a tag é criada sozinha).
+
+### Tabela de serviços e NBS
+
+`notara/catalogo.json` vem das planilhas oficiais da NFS-e Nacional (gov.br/nfse › Documentação técnica):
+Anexo B (lista de serviços e NBS) e Anexo VIII (correlação serviço × NBS). Quando a Receita publicar uma versão nova:
+
+    python tools/gerar_catalogo.py ANEXO_B.xlsx ANEXO_VIII.xlsx
+
+e publique uma versão do Notara: o botão Buscar atualização entrega a tabela nova.

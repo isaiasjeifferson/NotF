@@ -35,6 +35,20 @@ MESES = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "A
 SERVICO_VAZIO = {"cod_nacional": "", "cod_municipal": "", "nbs": "", "nome": "", "iss_retido": False}
 
 
+def servicos(perfil):
+    """Serviços salvos da empresa; o primeiro é o padrão (o mesmo de perfil["servico"])."""
+    lista = [x for x in (perfil.get("servicos") or []) if isinstance(x, dict) and x.get("cod_nacional")]
+    padrao = perfil.get("servico") or {}
+    if padrao.get("cod_nacional") and not any(_mesmo(x, padrao) for x in lista):
+        lista.insert(0, padrao)
+    return [{**SERVICO_VAZIO, **x} for x in lista]
+
+
+def _mesmo(a, b):
+    d = lambda v: re.sub(r"\D", "", str(v or ""))
+    return d(a.get("cod_nacional")) == d(b.get("cod_nacional")) and d(a.get("nbs")) == d(b.get("nbs"))
+
+
 def perfil_novo(cnpj, nome):
     return {
         "cnpj": cnpj, "nome": nome, "municipio_ibge": "", "municipio": "",
@@ -206,7 +220,7 @@ def pasta_dados(perfil):
     return Path(base) / perfil["cnpj"]
 
 
-COMPARTILHADO = ("servico", "descricao_modelo", "op_simples", "aliquota_simples", "teste_ok",
+COMPARTILHADO = ("servico", "servicos", "im_na_nota", "descricao_modelo", "op_simples", "aliquota_simples", "teste_ok",
                  "municipio_ibge", "municipio", "nome", "apelido")
 
 
@@ -250,7 +264,7 @@ def clientes(perfil):
 
 
 CAMPOS_CLIENTE = ("im", "email", "fone", "cep", "logradouro", "numero", "complemento", "bairro",
-                  "cmun", "municipio", "info")
+                  "cmun", "municipio", "info", "servico")
 
 
 def salvar_cliente(perfil, doc, nome, unidade=None, valor=None, descricao=None, extra=None):

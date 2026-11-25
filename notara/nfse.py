@@ -211,7 +211,7 @@ def montar_dps(empresa, nota, numero, ambiente, quando=None):
 
     prest = _el(inf, "prest")
     _el(prest, "CNPJ", digitos(empresa["cnpj"]))
-    if digitos(empresa.get("im")):
+    if digitos(empresa.get("im")) and empresa.get("im_na_nota", True):
         _el(prest, "IM", digitos(empresa["im"])[:15])
     if 6 <= len(digitos(empresa.get("fone"))) <= 20:
         _el(prest, "fone", digitos(empresa["fone"]))

@@ -17,7 +17,7 @@ from pathlib import Path
 
 import requests
 
-from . import __version__, dados, importar, nfse
+from . import __version__, catalogo, dados, importar, nfse
 from .nfse import Bloqueio, NfseErro, SemResposta, digitos
 
 REPO = "isaiasjeifferson/notara"
@@ -37,7 +37,17 @@ def _cnpj_ok(c):
 def _publico(p):
     if not p:
         return None
-    return {**p, "urls": p.get("urls") or nfse.URLS_PADRAO}
+    lista = []
+    for x in dados.servicos(p):
+        try:
+            oficial = catalogo.servico(x["cod_nacional"])
+            lista.append({**x, "descricao_servico": oficial["descricao"] if oficial else "",
+                          "descricao_nbs": catalogo.nbs_descricao(x.get("nbs"))})
+        except Exception:
+            log.exception("catálogo")
+            lista.append(x)
+    return {**p, "urls": p.get("urls") or nfse.URLS_PADRAO, "servicos": lista,
+            "im_na_nota": p.get("im_na_nota", True)}
 
 
 def _versao(v):
@@ -246,6 +256,22 @@ class Api:
                 s = {**perfil["servico"], **{k: v for k, v in p["servico"].items() if k in dados.SERVICO_VAZIO}}
                 s["iss_retido"] = bool(s.get("iss_retido"))
                 perfil["servico"] = s
+                if "servicos" not in p:
+                    lista = dados.servicos({**perfil, "servico": {}})
+                    perfil["servicos"] = [s] + [x for x in lista if not dados._mesmo(x, s)]
+            if "servicos" in p:
+                lista = []
+                for x in p["servicos"] or []:
+                    x = {**dados.SERVICO_VAZIO, **{k: v for k, v in (x or {}).items() if k in dados.SERVICO_VAZIO}}
+                    x["iss_retido"] = bool(x.get("iss_retido"))
+                    if x["cod_nacional"] and not any(dados._mesmo(x, y) for y in lista):
+                        lista.append(x)
+                if not lista:
+                    raise NfseErro("Deixe pelo menos um serviço cadastrado.")
+                perfil["servicos"] = lista
+                perfil["servico"] = lista[0]
+            if "im" in p:
+                perfil["im_na_nota"] = True  # IM nova ou corrigida: volta a ir na nota
             if "urls" in p:
                 urls = p["urls"] or None
                 if urls and not all(nfse.url_valida(urls.get(a, {}).get(k)) for a in ("producao", "teste") for k in ("sefin", "adn")):
@@ -293,21 +319,35 @@ class Api:
 
     @staticmethod
     def _validar_perfil(perfil):
-        s = perfil["servico"]
         if not perfil.get("nome"):
             raise NfseErro("Informe a razão social.")
         if not re.fullmatch(r"\d{7}", str(perfil.get("municipio_ibge", ""))):
             raise NfseErro("O código do município tem 7 números.")
         if perfil["op_simples"] == 3 and not 0 < float(perfil["aliquota_simples"]) < 100:
             raise NfseErro("Informe a alíquota do Simples (entre 0 e 100%).")
-        if len(digitos(s.get("cod_nacional"))) != 6:
-            raise NfseErro("O código do serviço tem 6 números. Ex.: 14.10.01")
-        if s.get("cod_municipal") and not re.fullmatch(r"\d{3}", digitos(s["cod_municipal"])):
-            raise NfseErro("O código municipal tem 3 números. Ex.: 001")
-        if s.get("nbs") and not re.fullmatch(r"\d{9}", digitos(s["nbs"])):
-            raise NfseErro("O código NBS tem 9 números.")
+        for s in dados.servicos(perfil) or [perfil["servico"]]:
+            if len(digitos(s.get("cod_nacional"))) != 6:
+                raise NfseErro("O código do serviço tem 6 números. Ex.: 14.10.01")
+            if s.get("cod_municipal") and not re.fullmatch(r"\d{3}", digitos(s["cod_municipal"])):
+                raise NfseErro("O código municipal tem 3 números. Ex.: 001")
+            if s.get("nbs") and not re.fullmatch(r"\d{9}", digitos(s["nbs"])):
+                raise NfseErro("O código NBS tem 9 números.")
         if not perfil.get("descricao_modelo"):
             raise NfseErro("Informe o modelo da descrição.")
+
+    # ---- tabela oficial de serviços e NBS ----
+
+    def catalogo_servicos(self, q=""):
+        return self._tratar(lambda: {"itens": catalogo.servicos(q)})
+
+    def catalogo_nbs(self, q="", cod_servico=""):
+        return self._tratar(lambda: {"itens": catalogo.nbs(q, cod_servico)})
+
+    def catalogo_info(self, cod_servico="", nbs=""):
+        def f():
+            s = catalogo.servico(cod_servico) if digitos(cod_servico) else None
+            return {"servico": s["descricao"] if s else "", "nbs": catalogo.nbs_descricao(nbs), "fonte": catalogo.fonte()}
+        return self._tratar(f)
 
     def trocar_certificado(self, b64, senha):
         def f():
@@ -608,7 +648,10 @@ class Api:
         unidade = str(nota.get("unidade") or "").strip()
         cad = dados.clientes(perfil).get(doc, {})
         info = str(nota.get("info") or cad.get("info") or "").strip()
-        nota = {"cnpj": doc, "nome": nome, "descricao": desc, "valor": str(valor), "cliente": cad, "info": info}
+        srv = self._servico_da_nota(perfil, nota, cad)
+        perfil = {**perfil, "servico": srv}
+        nota = {"cnpj": doc, "nome": nome, "descricao": desc, "valor": str(valor), "cliente": cad, "info": info,
+                "servico": digitos(srv.get("cod_nacional")) + "|" + digitos(srv.get("nbs"))}
 
         quando = nfse.agora()
         amb = perfil["ambiente"]
@@ -627,8 +670,21 @@ class Api:
         xml = nfse.assinar(root, cert)
 
         etapa(2)
+        aviso = None
         try:
-            chave, xml_nfse = receita.emitir(xml)
+            try:
+                chave, xml_nfse = receita.emitir(xml)
+            except NfseErro as e:
+                if "E0120" not in str(e) or isinstance(e, (SemResposta, Bloqueio)) or not perfil.get("im_na_nota", True):
+                    raise
+                # A IM não está no cadastro nacional (CNC) do município: a Receita só aceita a nota sem ela.
+                self._im_fora_da_nota(perfil)
+                perfil = {**perfil, "im_na_nota": False}
+                root, ident = nfse.montar_dps({**perfil, "serie": serie}, nota, numero, amb, quando)
+                xml = nfse.assinar(root, cert)
+                chave, xml_nfse = receita.emitir(xml)
+                aviso = ("A Inscrição Municipal foi tirada da nota: ela não está no cadastro nacional da NFS-e. "
+                         "Ela continua salva em Ajustes.")
         except SemResposta:
             chave = receita.chave_da_dps(ident)
             if not chave:
@@ -637,7 +693,31 @@ class Api:
                                   "confira por lá antes de enviar de novo.")
             xml_nfse = receita.baixar_xml(chave)
         etapa(3)
-        return self._concluir(perfil, receita, nota, unidade, chave, xml_nfse, amb, quando)
+        item = self._concluir(perfil, receita, nota, unidade, chave, xml_nfse, amb, quando)
+        if aviso:
+            item["aviso"] = (item.get("aviso", "") + " " + aviso).strip()
+        return item
+
+    @staticmethod
+    def _im_fora_da_nota(perfil):
+        try:
+            dados.salvar_empresa({"cnpj": perfil["cnpj"], "im_na_nota": False})
+            dados.publicar_perfil({**perfil, "im_na_nota": False})
+        except Exception:
+            log.exception("im_na_nota")
+
+    @staticmethod
+    def _servico_da_nota(perfil, nota, cad):
+        """Serviço escolhido na nota; senão o último usado para o cliente; senão o padrão da empresa."""
+        lista = dados.servicos(perfil) or [perfil["servico"]]
+        for chave in (nota.get("servico"), cad.get("servico")):
+            if chave:
+                cod, _, nbs = str(chave).partition("|")
+                achado = next((x for x in lista if digitos(x["cod_nacional"]) == digitos(cod)
+                               and (not nbs or digitos(x.get("nbs")) == digitos(nbs))), None)
+                if achado:
+                    return achado
+        return lista[0]
 
     def _registrar_pendente(self, perfil, nota, unidade, ident, amb):
         try:
@@ -661,7 +741,8 @@ class Api:
             log.exception("registrar nota %s", chave)
             item["aviso"] = "Nota emitida, mas não foi possível gravar no histórico."
         try:
-            dados.salvar_cliente(perfil, nota["cnpj"], nota["nome"], unidade, nota["valor"], nota["descricao"])
+            dados.salvar_cliente(perfil, nota["cnpj"], nota["nome"], unidade, nota["valor"], nota["descricao"],
+                                 {"servico": nota["servico"]} if nota.get("servico") else None)
         except Exception:
             log.exception("salvar cliente")
         try:

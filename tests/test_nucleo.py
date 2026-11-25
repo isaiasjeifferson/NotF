@@ -310,3 +310,63 @@ def test_pdf_gerado_a_partir_do_xml_da_nfse(ambiente):
     from notara import danfse
     pdf = danfse.gerar((AQUI / "nfse_exemplo.xml").read_bytes())
     assert pdf[:4] == b"%PDF" and len(pdf) > 3000
+
+
+def test_catalogo_oficial_de_servicos_e_nbs(ambiente):
+    from notara import catalogo
+    assert catalogo.servicos("lavanderia") == [{"codigo": "141001", "descricao": "Tinturaria e lavanderia."}]
+    assert catalogo.servicos("14.10")[0]["codigo"] == "141001"
+    assert catalogo.servicos("ANÁLISE desenvolvimento")[0]["codigo"] == "010101"
+    sug = catalogo.nbs("", "141001")
+    assert sug and all(s["sugerido"] for s in sug) and "126011000" in {s["codigo"] for s in sug}
+    outros = catalogo.nbs("limpeza", "141001")
+    assert outros[0]["sugerido"] and any(not o["sugerido"] for o in outros)
+
+
+def test_varios_servicos_e_escolha_por_nota_e_cliente(ambiente):
+    d, n = ambiente.dados, ambiente.nfse
+    api = _cadastrar(ambiente)
+    outro = {"cod_nacional": "071002", "nbs": "", "cod_municipal": "", "iss_retido": False}
+    r = api.salvar_empresa({"cnpj": "11444777000161", "servicos": [PERFIL["servico"], outro]})
+    assert r["ok"] and len(r["estado"]["empresa"]["servicos"]) == 2
+    assert r["estado"]["empresa"]["servicos"][0]["descricao_servico"] == "Tinturaria e lavanderia."
+    assert not api.salvar_empresa({"cnpj": "11444777000161", "servicos": []})["ok"]
+    perfil = d.empresa()
+    xmls = []
+    receita = ReceitaFalsa()
+    receita.falhar_em = set()
+    emitir = receita.emitir
+    receita.emitir = lambda x: (xmls.append(x), emitir(x))[1]
+    api._uma(perfil, api._cert(perfil), receita, {**NOTA, "servico": "071002|"})
+    assert b"<cTribNac>071002</cTribNac>" in xmls[-1] and b"cNBS" not in xmls[-1]
+    # sem escolha: usa o último serviço daquele cliente
+    api._uma(d.empresa(), api._cert(perfil), receita, dict(NOTA))
+    assert b"<cTribNac>071002</cTribNac>" in xmls[-1]
+    # outro cliente: o padrão da empresa
+    api._uma(d.empresa(), api._cert(perfil), receita, {**NOTA, "cnpj": "11.444.777/0001-61"})
+    assert b"<cTribNac>141001</cTribNac>" in xmls[-1]
+
+
+def test_im_fora_do_cadastro_nacional_reenvia_sem_im(ambiente):
+    d = ambiente.dados
+    api = _cadastrar(ambiente, im="6.414.179-9")
+    perfil = d.empresa()
+    xmls = []
+
+    class R(ReceitaFalsa):
+        falhar_em = set()
+
+        def emitir(self, xml):
+            xmls.append(xml)
+            if b"<IM>" in xml:
+                from notara import nfse
+                raise nfse.NfseErro("E0120 IM do prestador não deve ser informado")
+            return super().emitir(xml)
+
+    item = api._uma(perfil, api._cert(perfil), R(), dict(NOTA))
+    assert item["numero"] and "Inscrição Municipal" in item["aviso"]
+    assert len(xmls) == 2 and b"<IM>" not in xmls[1]
+    assert d.empresa()["im_na_nota"] is False and d.empresa()["im"] == "6.414.179-9"
+    # corrigir a IM volta a mandá-la
+    api.salvar_empresa({"cnpj": "11444777000161", "im": "1234567"})
+    assert d.empresa()["im_na_nota"] is True

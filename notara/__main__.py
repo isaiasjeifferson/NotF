@@ -26,7 +26,8 @@ def _fundo():
 
 def verificar():
     """Autoteste do programa empacotado (usado na publicação): tudo o que o Notara carrega precisa existir."""
-    from notara import danfse, importar, nfse  # noqa: F401
+    from notara import catalogo, danfse, importar, nfse  # noqa: F401
+    assert catalogo.servicos("lavanderia"), "tabela de serviços"
     exemplo = BASE / "notara" / "nfse_exemplo.xml"
     assert danfse.gerar(exemplo.read_bytes())[:4] == b"%PDF"
     nfse.validar.__call__  # schemas carregados sob demanda

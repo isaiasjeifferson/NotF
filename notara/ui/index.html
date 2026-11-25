@@ -106,6 +106,8 @@ main{flex:1;overflow:auto;padding:0 32px 24px}
 .check-n{width:22px;height:22px;border-radius:50%;border:1.5px solid var(--label3);display:grid;place-items:center;color:#fff;flex:none}
 .check-n[aria-checked=true]{background:var(--blue);border-color:var(--blue)}
 .row.apagada .t,.row.apagada .s{color:var(--label3)}
+.pk-res{max-height:240px;overflow:auto} .pk-res .row{min-height:48px;padding:8px 16px} .pk-res .s{white-space:normal}
+.row .ck{width:18px;flex:none;color:var(--blue)} .badge.ind{background:color-mix(in srgb,var(--blue) 14%,transparent);color:var(--blue)}
 .more{width:30px;height:28px;border-radius:7px;color:var(--label2);display:grid;place-items:center;flex:none}
 .more:hover{background:var(--fill)}
 
@@ -307,6 +309,9 @@ const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 const dig=s=>String(s||'').replace(/\D/g,'');
 const fmtDoc=d=>(d=dig(d)).length===14?d.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/,'$1.$2.$3/$4-$5'):d.length===11?d.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/,'$1.$2.$3-$4'):d;
 const parseValor=s=>{s=String(s).replace(/[^\d,.-]/g,'');if(s.includes(','))s=s.replace(/\./g,'').replace(',','.');return Math.round((parseFloat(s)||0)*100)/100};
+const fmtCod=c=>(c=dig(c)).length===6?c.replace(/(\d{2})(\d{2})(\d{2})/,'$1.$2.$3'):c;
+const fmtNbs=c=>(c=dig(c)).length===9?c.replace(/(\d)(\d{4})(\d{2})(\d{2})/,'$1.$2.$3.$4'):c;
+const nomeSrv=x=>{const d=(x.nome||x.descricao_servico||'').replace(/\.$/,''); return d.length>48?d.slice(0,46)+'…':d;};
 const fmtNum=v=>(+v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
 const plural=(n,a,b)=>`${n} ${n===1?a:b}`;
 const MESES=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
@@ -435,19 +440,8 @@ const app={
         <p class="hint" id="e-aliq-h">Percentual efetivo da sua faixa no Simples. Está no extrato do PGDAS ou com a contabilidade.</p>
         <div class="setup-nav">${voltar}<span class="spacer"></span><button class="btn primary big" data-a="salvarPasso2">Continuar</button></div>`,
       ()=>`<h2>Serviço que você presta</h2>
-        <p class="lead">Copie os códigos da última nota emitida pelo site da prefeitura ou pelo Emissor Nacional. Se não tiver, peça à contabilidade.</p>
-        <div class="group">
-          <div class="field" id="fs-nac"><label for="s-nac">Código do serviço</label><input id="s-nac" class="num" placeholder="00.00.00" value="${esc(c.servico.cod_nacional||'')}"></div>
-          <div class="field"><span class="lbl" id="s-ret-l">ISS retido pelo cliente</span><span class="spacer"></span>${sw('s-ret',c.servico.iss_retido)}</div>
-        </div>
-        <p class="hint">O código do serviço tem 6 números (ex.: 14.10.01) e aparece na nota como “Código de Tributação Nacional”. Ligue o ISS retido só se o cliente desconta o ISS do pagamento.</p>
-        <details ${c.servico.cod_municipal||c.servico.nbs?'open':''}><summary>Códigos opcionais</summary>
-          <div class="group">
-            <div class="field" id="fs-mun"><label for="s-mun">Código municipal</label><input id="s-mun" class="num" placeholder="3 números" value="${esc(c.servico.cod_municipal||'')}"></div>
-            <div class="field" id="fs-nbs"><label for="s-nbs">Código NBS</label><input id="s-nbs" class="num" placeholder="9 números" value="${esc(c.servico.nbs||'')}"></div>
-          </div>
-          <p class="hint">Na nota antiga: “Código Complementar Municipal” (os 3 últimos números) e “Item da NBS”.</p>
-        </details>
+        <p class="lead">Escreva o que a empresa faz e escolha na lista oficial. Se fizer mais de um serviço, adicione os outros depois em Ajustes.</p>
+        ${this.pkHtml('sw',c.servico)}
         <div class="gt">Descrição das notas</div>
         <div class="group">
           <div class="field col" id="fs-modelo"><label for="s-modelo">Modelo</label><input id="s-modelo" value="${esc(c.modelo||'Prestação de serviço - {mes} de {ano} - {unidade}')}"></div>
@@ -466,7 +460,7 @@ const app={
     $('#passo').innerHTML=P[this.passo]();
     if(this.passo===0){ const s=$('#c-senha'); s.onkeydown=e=>{if(e.key==='Enter')this.lerCert()}; s.focus(); }
     if(this.passo===1){ const upd=()=>{const v=segVal('e-reg');$('#fe-aliq').hidden=$('#e-aliq-h').hidden=v!=='3'}; this.segs(upd,['e-reg']); upd(); $('#e-nome').focus(); }
-    if(this.passo===2){ this.previa('s-modelo'); $('#s-nac').focus(); }
+    if(this.passo===2){ this.previa('s-modelo'); this.pkLigar('sw'); }
     if(this.passo===3&&!c.salvo) this.salvarCadastro();
   },
   irPasso(d){ this.passo=Math.max(0,Math.min(3,this.passo+(+d))); this.renderPasso(); },
@@ -491,11 +485,8 @@ const app={
   },
   salvarPasso3(){
     const s=this.cad.servico;
-    Object.assign(s,{cod_nacional:$('#s-nac').value.trim(),cod_municipal:$('#s-mun').value.trim(),nbs:$('#s-nbs').value.trim(),iss_retido:swOn('s-ret')});
+    const v=this.pkValor('sw'); if(!v) return; Object.assign(s,v);
     this.cad.modelo=$('#s-modelo').value.trim();
-    if(dig(s.cod_nacional).length!==6) return this.invalido('fs-nac','O código do serviço tem 6 números. Ex.: 14.10.01');
-    if(s.cod_municipal&&dig(s.cod_municipal).length!==3){ $('details').open=true; return this.invalido('fs-mun','O código municipal tem 3 números.'); }
-    if(s.nbs&&dig(s.nbs).length!==9){ $('details').open=true; return this.invalido('fs-nbs','O código NBS tem 9 números.'); }
     if(!this.cad.modelo) return this.invalido('fs-modelo','Informe o modelo da descrição.');
     this.irPasso(1);
   },
@@ -643,7 +634,7 @@ const app={
     const acoes=edit?`<button class="acao" data-a="editar" data-i="${i}" title="Editar" aria-label="Editar nota de ${rot}">${ICON.lapis}</button>
       <button class="acao red" data-a="excluir" data-i="${i}" title="Excluir" aria-label="Excluir nota de ${rot}">${ICON.lixo}</button>`:'';
     return `<div class="row ${lista&&!this.sel(x)?'apagada':''} ${st?.status==='enviando'?'ativa':''}" title="${esc(x.nome)} · ${fmtDoc(x.cnpj)}">${esq}
-        <div class="main" style="text-align:left"><div class="t">${rot}</div><div class="s ${st?.status==='enviando'?'etapa':''}">${st?.status==='enviando'?this.ETAPAS[st.etapa||0]+'…':esc(x.descricao)}</div>${extra}</div>${dir}${acoes}</div>`;
+        <div class="main" style="text-align:left"><div class="t">${rot}${x.servico&&(this.s.empresa?.servicos||[]).length>1?` <span class="badge">${fmtCod(x.servico.split('|')[0])}</span>`:''}</div><div class="s ${st?.status==='enviando'?'etapa':''}">${st?.status==='enviando'?this.ETAPAS[st.etapa||0]+'…':esc(x.descricao)}</div>${extra}</div>${dir}${acoes}</div>`;
   },
   alternarSel(_,el){ const x=this.notas[+el.dataset.i]; x.sel=!this.sel(x); this.render(); },
   marcarTodas(){ const todas=this.notas.every(x=>this.sel(x)); this.notas.forEach(x=>x.sel=!todas); this.render(); },
@@ -690,10 +681,13 @@ const app={
         <div class="field"><label for="f-uni">Unidade</label><input id="f-uni" value="${esc(x.unidade)}" placeholder="Opcional"></div>
         <div class="field" id="ff-val"><label for="f-val">Valor</label><input id="f-val" class="num" value="${x.valor?fmtNum(x.valor):''}" placeholder="R$ 0,00"></div>
       </div>${pre&&x.valor?'<p class="hint">Preenchido com o último valor. Altere se mudou.</p>':''}
+      ${(this.s.empresa.servicos||[]).length>1?`<div class="gt">Serviço</div><div class="group"><div class="field"><select id="f-srv" aria-label="Serviço" style="flex:1">
+        <option value="">Automático · o último usado com este cliente</option>${this.s.empresa.servicos.map(v=>{const c=v.cod_nacional+'|'+(v.nbs||'');return `<option value="${c}" ${x.servico===c?'selected':''}>${fmtCod(v.cod_nacional)} · ${esc(nomeSrv(v))}</option>`}).join('')}</select></div></div>`:''}
       <div class="gt">Descrição</div>
       <div class="group"><div class="field" id="ff-desc"><textarea id="f-desc" aria-label="Descrição">${esc(x.descricao)}</textarea></div></div>`,
       novo?'Adicionar':'Salvar', async()=>{
         const n={cnpj:dig($('#f-doc').value),nome:$('#f-nome').value.trim(),unidade:$('#f-uni').value.trim(),valor:parseValor($('#f-val').value),descricao:$('#f-desc').value.trim(),sel:novo?true:this.sel(x)};
+        if($('#f-srv')?.value) n.servico=$('#f-srv').value;
         if(![11,14].includes(n.cnpj.length)) return this.invalido('ff-doc','Confira o CNPJ ou CPF.');
         if(!n.nome) return this.invalido('ff-nome','Informe o nome do cliente.');
         if(!(n.valor>0)) return this.invalido('ff-val','Informe o valor.');
@@ -911,7 +905,7 @@ const app={
           <div class="field" id="fa-email"><label for="a-email">E-mail</label><input id="a-email" value="${esc(e.email||'')}" placeholder="Opcional"></div>
           <div class="field"><label for="a-ie">Inscrição Estadual</label><input id="a-ie" class="num" value="${esc(e.ie||'')}" placeholder="Opcional"></div>
         </div>
-        <p class="hint">A Inscrição Estadual fica guardada, mas não aparece na nota de serviço: ela só existe na nota de produto.</p>
+        <p class="hint">${e.im&&e.im_na_nota===false?'<b>A Inscrição Municipal não está indo nas notas:</b> a Receita recusou porque ela não está no cadastro nacional da NFS-e. Ela volta a ir quando você corrigir o número. ':''}A Inscrição Estadual fica guardada, mas não aparece na nota de serviço: ela só existe na nota de produto.</p>
         <div class="gt">Certificado digital</div>
         <div class="group">
           <div class="field"><span class="lbl">Certificado</span><div class="val">${certTxt}</div><button class="link" data-a="trocarCert">Trocar</button></div>
@@ -923,13 +917,12 @@ const app={
           <div id="a-con" hidden style="padding:4px 16px 12px"></div>
         </div>
         <p class="hint">${e.ambiente==='producao'?'Na produção, as notas têm validade fiscal.':e.teste_ok?'Teste concluído. Na produção, as notas têm validade fiscal.':'Emita uma nota de teste para liberar a produção. <button class="link" data-a="producaoSemTeste">O ambiente de teste não funciona?</button>'}</p>
-        <div class="gt">Serviço</div>
-        <div class="group">
-          <div class="field" id="fa-nac"><label for="a-nac">Código do serviço</label><input id="a-nac" class="num" value="${esc(s.cod_nacional)}"></div>
-          <div class="field" id="fa-cmun"><label for="a-cmun">Código municipal</label><input id="a-cmun" class="num" value="${esc(s.cod_municipal)}" placeholder="Opcional"></div>
-          <div class="field" id="fa-nbs"><label for="a-nbs">Código NBS</label><input id="a-nbs" class="num" value="${esc(s.nbs)}" placeholder="Opcional"></div>
-          <div class="field"><span class="lbl" id="a-ret-l">ISS retido pelo cliente</span><span class="spacer"></span>${sw('a-ret',s.iss_retido)}</div>
+        <div class="gt">Serviços</div>
+        <div class="group">${(e.servicos||[s]).map((x,k)=>`<button class="row click" data-a="menuServico" data-k="${k}"><div class="main"><div class="t"><span class="num">${fmtCod(x.cod_nacional)}</span> · ${esc(nomeSrv(x))} ${k===0?'<span class="badge">Padrão</span>':''}</div>
+            <div class="s">${x.nbs?`NBS ${fmtNbs(x.nbs)}${x.descricao_nbs?' · '+esc(x.descricao_nbs):''}`:'Sem NBS'}${x.iss_retido?' · ISS retido':''}</div></div></button>`).join('')}
+          <button class="field click" data-a="novoServico"><span class="lbl" style="color:var(--blue)">Adicionar serviço</span></button>
         </div>
+        <p class="hint">O padrão vai nas notas novas. Cada cliente lembra o último serviço usado com ele, e dá para trocar em cada nota.</p>
         <div class="gt">Descrição das notas</div>
         <div class="group">
           <div class="field col" id="fa-modelo"><label for="a-modelo">Modelo</label><input id="a-modelo" value="${esc(e.descricao_modelo)}"></div>
@@ -968,7 +961,6 @@ const app={
     this.segs(v=>{ if(v==='producao'&&this.s.empresa.ambiente!=='producao') this.ligarProducaoAgora();
       else if(v==='teste'&&this.s.empresa.ambiente!=='teste') this.salvarCampo({ambiente:'teste'},'a-amb'); },['a-amb']);
     this.previa('a-modelo');
-    const srv=()=>({servico:{cod_nacional:$('#a-nac').value.trim(),cod_municipal:$('#a-cmun').value.trim(),nbs:$('#a-nbs').value.trim(),iss_retido:swOn('a-ret')}});
     const urls=()=>{ const u={}; ['producao','teste'].forEach(a=>u[a]={sefin:$(`#u-${a}-sefin`).value.trim(),adn:$(`#u-${a}-adn`).value.trim()}); return {urls:u}; };
     const campos={
       'a-nome':()=>({nome:$('#a-nome').value.trim()}), 'a-apelido':()=>({apelido:$('#a-apelido').value.trim()}),
@@ -977,11 +969,64 @@ const app={
       'a-guardar':()=>({pedir_senha:!swOn('a-guardar')}),
       'a-im':()=>({im:$('#a-im').value.trim()}), 'a-fone':()=>({fone:$('#a-fone').value.trim()}),
       'a-email':()=>({email:$('#a-email').value.trim()}), 'a-ie':()=>({ie:$('#a-ie').value.trim()}),
-      'a-nac':srv,'a-cmun':srv,'a-nbs':srv,'a-ret':srv, 'a-modelo':()=>({descricao_modelo:$('#a-modelo').value.trim()}),
+      'a-modelo':()=>({descricao_modelo:$('#a-modelo').value.trim()}),
       'u-producao-sefin':urls,'u-producao-adn':urls,'u-teste-sefin':urls,'u-teste-adn':urls,
     };
     for(const [id,fn] of Object.entries(campos)) $('#'+id).addEventListener('change',()=>this.salvarCampo(fn(),id));
   },
+  /* ---- Serviços: busca na tabela oficial ---- */
+  pkHtml(p,s){ this.pk=this.pk||{}; this.pk[p]={cod_nacional:'',nbs:'',cod_municipal:'',iss_retido:false,...(s||{})};
+    return `<div id="${p}-pk">${this.pkCorpo(p)}</div>`; },
+  pkCorpo(p){ const s=this.pk[p];
+    if(!dig(s.cod_nacional)) return `<div class="group"><div class="field" id="${p}-fq"><input id="${p}-q" placeholder="O que você faz? Ex.: lavanderia, limpeza, 14.10" aria-label="Buscar serviço" autocomplete="off"></div></div>
+      <div class="group pk-res" id="${p}-res" hidden style="margin-top:8px"></div><p class="hint">Busca na lista oficial de serviços da NFS-e Nacional.</p>`;
+    return `<div class="group"><div class="row"><div class="main"><div class="t num">${fmtCod(s.cod_nacional)}</div><div class="s" style="white-space:normal">${esc(s.descricao_servico||'')}</div></div><button class="link" data-a="pkTrocar" data-p="${p}">Trocar</button></div></div>
+      <div class="gt">Código NBS</div>
+      <div class="group pk-res" id="${p}-nbs"></div>
+      <div class="group" style="margin-top:8px"><div class="field"><input id="${p}-qn" placeholder="Procurar outro NBS" aria-label="Procurar NBS" autocomplete="off"></div></div>
+      <p class="hint">“Indicado” são os NBS que a tabela oficial liga a este serviço. Na dúvida, confirme com a contabilidade.</p>
+      <div class="group"><div class="field" id="${p}-fmun"><label for="${p}-mun">Código municipal</label><input id="${p}-mun" class="num" placeholder="Opcional" value="${esc(s.cod_municipal||'')}"></div>
+        <div class="field"><span class="lbl" id="${p}-ret-l">ISS retido pelo cliente</span><span class="spacer"></span>${sw(p+'-ret',s.iss_retido)}</div></div>`; },
+  async pkLigar(p){ const s=this.pk[p], box=$('#'+p+'-pk'); if(!box) return;
+    if(!s.descricao_servico&&dig(s.cod_nacional)){ const i=await api().catalogo_info(s.cod_nacional,s.nbs); if(i.ok){ s.descricao_servico=i.servico; s.descricao_nbs=i.nbs; box.innerHTML=this.pkCorpo(p); } }
+    const q=$('#'+p+'-q');
+    if(q){ let t; q.oninput=()=>{ clearTimeout(t); t=setTimeout(async()=>{ const r=await api().catalogo_servicos(q.value), res=$('#'+p+'-res'); if(!res||!r.ok) return;
+        res.hidden=!q.value.trim();
+        res.innerHTML=r.itens.length?r.itens.map(x=>`<button class="row click" data-a="pkSrv" data-p="${p}" data-c="${x.codigo}"><div class="main"><div class="t num">${fmtCod(x.codigo)}</div><div class="s">${esc(x.descricao)}</div></div></button>`).join('')
+          :`<div class="row"><div class="main"><div class="s">Nada encontrado. Tente outra palavra ou o número do item (ex.: 14.10).</div></div></div>`;
+        this._pkRes=r.itens; },200); }; q.focus(); return; }
+    this.pkNbs(p,'');
+    const qn=$('#'+p+'-qn'); let t2; qn.oninput=()=>{ clearTimeout(t2); t2=setTimeout(()=>this.pkNbs(p,qn.value),200); };
+  },
+  async pkNbs(p,q){ const s=this.pk[p], r=await api().catalogo_nbs(q,s.cod_nacional), box=$('#'+p+'-nbs'); if(!box||!r.ok) return;
+    let itens=r.itens; if(s.nbs&&!itens.some(x=>x.codigo===dig(s.nbs))&&!q) itens=[{codigo:dig(s.nbs),descricao:s.descricao_nbs||''},...itens];
+    const linha=x=>`<button class="row click" data-a="pkEscNbs" data-p="${p}" data-c="${x.codigo}"><span class="ck">${dig(s.nbs)===x.codigo?ICON.check:''}</span><div class="main"><div class="t"><span class="num">${fmtNbs(x.codigo)}</span> ${x.sugerido?'<span class="badge ind">Indicado</span>':''}</div><div class="s">${esc(x.descricao)}</div></div></button>`;
+    box.innerHTML=itens.map(linha).join('')+(q?'':`<button class="row click" data-a="pkEscNbs" data-p="${p}" data-c=""><span class="ck">${s.nbs?'':ICON.check}</span><div class="main"><div class="t">Não informar NBS</div></div></button>`)
+      ||`<div class="row"><div class="main"><div class="s">Nenhum NBS encontrado.</div></div></div>`;
+    this._pkNbs=itens; },
+  pkSrv(_,el){ const p=el.dataset.p, s=this.pk[p], x=(this._pkRes||[]).find(i=>i.codigo===el.dataset.c);
+    Object.assign(s,{cod_nacional:el.dataset.c,descricao_servico:x?.descricao||'',nbs:''});
+    $('#'+p+'-pk').innerHTML=this.pkCorpo(p); this.pkLigar(p).then(async()=>{ const r=await api().catalogo_nbs('',s.cod_nacional); if(r.ok&&r.itens.length===1){ s.nbs=r.itens[0].codigo; s.descricao_nbs=r.itens[0].descricao; this.pkNbs(p,''); } }); },
+  pkTrocar(_,el){ const p=el.dataset.p; Object.assign(this.pk[p],{cod_nacional:'',nbs:'',descricao_servico:''}); $('#'+p+'-pk').innerHTML=this.pkCorpo(p); this.pkLigar(p); },
+  pkEscNbs(_,el){ const p=el.dataset.p, s=this.pk[p], x=(this._pkNbs||[]).find(i=>i.codigo===el.dataset.c); s.nbs=el.dataset.c; s.descricao_nbs=x?.descricao||'';
+    const q=$('#'+p+'-qn'); this.pkNbs(p,q?.value||''); },
+  pkValor(p){ const s=this.pk[p];
+    if(dig(s.cod_nacional).length!==6){ this.toast('Escolha o serviço na lista.'); $('#'+p+'-q')?.focus(); return null; }
+    const mun=$('#'+p+'-mun').value.trim(); if(mun&&dig(mun).length!==3){ this.invalido(p+'-fmun','O código municipal tem 3 números.'); return null; }
+    return {cod_nacional:dig(s.cod_nacional),nbs:dig(s.nbs),cod_municipal:mun,iss_retido:swOn(p+'-ret')}; },
+  servicoFolha(k){ const lista=this.s.empresa.servicos||[this.s.empresa.servico], novo=k===undefined;
+    this.folha2(novo?'Adicionar serviço':'Editar serviço','',this.pkHtml('sv',novo?null:lista[k]),'Salvar',async()=>{
+      const v=this.pkValor('sv'); if(!v) return;
+      const nova=lista.map(x=>({cod_nacional:x.cod_nacional,nbs:x.nbs,cod_municipal:x.cod_municipal,iss_retido:x.iss_retido}));
+      if(novo) nova.push(v); else nova[k]=v;
+      await this.salvarServicos(nova); this.fechar2(); });
+    this.pkLigar('sv'); },
+  async salvarServicos(lista){ await this.salvarCampo({servicos:lista},'a-tabs'); this.ajustes('notas'); },
+  novoServico(){ this.servicoFolha(); },
+  menuServico(_,el){ const k=+el.dataset.k, lista=(this.s.empresa.servicos||[]).map(x=>({cod_nacional:x.cod_nacional,nbs:x.nbs,cod_municipal:x.cod_municipal,iss_retido:x.iss_retido}));
+    this.menu(el,[k?['Tornar padrão',()=>{ const [x]=lista.splice(k,1); lista.unshift(x); this.salvarServicos(lista); }]:null,
+      ['Editar…',()=>this.servicoFolha(k)],
+      lista.length>1?'-':null, lista.length>1?['Remover',()=>{ lista.splice(k,1); this.salvarServicos(lista); },'red']:null]); },
   async salvarCampo(parcial,id,senha){
     const st=$('#sheet-status'); if(st) st.textContent='Salvando…';
     const r=await api().salvar_empresa({cnpj:this.s.empresa.cnpj,...parcial},false,senha||null);
