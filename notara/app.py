@@ -17,7 +17,7 @@ from pathlib import Path
 
 import requests
 
-from . import __version__, danfse, dados, importar, nfse
+from . import __version__, dados, importar, nfse
 from .nfse import Bloqueio, NfseErro, SemResposta, digitos
 
 REPO = "isaiasjeifferson/notara"
@@ -687,6 +687,7 @@ class Api:
         if not xml_nfse:
             return None
         try:
+            from . import danfse  # carregado só quando precisa: um problema no PDF nunca impede o programa de abrir
             return danfse.gerar(xml_nfse)
         except Exception:
             log.exception("gerar PDF local")

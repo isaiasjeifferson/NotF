@@ -24,7 +24,25 @@ def _fundo():
     return "#000000" if tema == "escuro" else "#F5F5F7"
 
 
+def verificar():
+    """Autoteste do programa empacotado (usado na publicação): tudo o que o Notara carrega precisa existir."""
+    from notara import danfse, importar, nfse  # noqa: F401
+    exemplo = BASE / "notara" / "nfse_exemplo.xml"
+    assert danfse.gerar(exemplo.read_bytes())[:4] == b"%PDF"
+    nfse.validar.__call__  # schemas carregados sob demanda
+    from lxml import etree
+    etree.XMLSchema(etree.parse(str(nfse.SCHEMAS / "DPS_v1.01.xsd")))
+    print("Notara OK")
+
+
 def main():
+    if "--verificar" in sys.argv:
+        try:
+            verificar()
+        except Exception as e:  # sem janela de erro: o código de saída informa a falha
+            print(repr(e), file=sys.stderr)
+            sys.exit(1)
+        return
     api = Api()
     api._janela = webview.create_window("Notara", str(UI), js_api=api, width=1100, height=760,
                                        min_size=(860, 580), background_color=_fundo())
