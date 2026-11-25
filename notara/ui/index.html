@@ -772,30 +772,40 @@ const app={
       :`<div class="empty"><h2>Nenhum cliente ainda</h2><p>Os clientes aparecem aqui depois da primeira nota emitida para eles.</p></div>`);
     const i=$('#q-clientes'); i.oninput=()=>{ this._qc=i.value; const pos=i.selectionStart; this.renderClientes().then(()=>{ const n=$('#q-clientes'); n.focus(); n.setSelectionRange(pos,pos); }); };
   },
-  abrirClienteBtn(_,el){ this.abrirCliente(el.dataset.c); },
+  abrirClienteBtn(_,el){ this._cliAba='unidades'; this.abrirCliente(el.dataset.c); },
   fecharCliente(){ this._cliAberto=null; this.renderClientes(); },
   async abrirCliente(cnpj){
     this._cliAberto=cnpj; if(!this._clis) this._clis=await api().clientes_resumo();
     const c=this._clis.find(x=>x.cnpj===cnpj); if(!c){ this._cliAberto=null; return this.renderClientes(); }
     const h=(this.s.historico||[]).filter(x=>x.cnpj===cnpj&&x.ambiente!=='teste'); this._hc=h;
-    const media=c.notas?c.total/c.notas:0;
+    const media=c.notas?c.total/c.notas:0, aba=this._cliAba||'unidades';
     $('#clientes').innerHTML=`<button class="voltar" data-a="fecharCliente">‹ Clientes</button>
       <div style="display:flex;gap:14px;align-items:center;margin-top:10px">${this.av(c,true)}<div class="main"><div class="t" style="font-size:19px;white-space:normal;line-height:1.25">${esc(c.nome)}</div><div class="s">${fmtDoc(c.cnpj)}</div></div>
         <button class="btn" data-a="renomearCliente" data-c="${esc(cnpj)}">Renomear</button><button class="btn primary" data-a="novaNotaCliente" data-c="${esc(cnpj)}">Nova nota</button></div>
       <div class="stats" id="cli-stats"><div><b>${c.notas}</b><span>notas emitidas</span></div><div><b>${brl(c.total)}</b><span>total emitido</span></div>
         <div><b>${brl(media)}</b><span>valor médio</span></div><div><b>${esc(c.ultima?c.ultima.split(' ')[0]:'—')}</b><span>última nota</span></div></div>
-      <div class="gt"><span>Dados do cliente · vão em todas as notas dele</span><button class="link" data-a="completarCliente" data-c="${esc(cnpj)}">Preencher pelo CNPJ</button></div>
-      <div class="group" id="cli-dados"><div class="field"><span class="s">Carregando…</span></div></div>
-      <p class="hint">Só o CNPJ e o nome são obrigatórios. O que estiver preenchido aqui vai sozinho nas próximas notas. Salva ao sair de cada campo.</p>
-      ${c.unidades.length?`<div class="gt"><span>Unidades</span>${c.unidades.length>1?`<button class="link" data-a="todasUnidadesCliente" data-c="${esc(cnpj)}">Adicionar todas à lista</button>`:''}</div>
-      <div class="group">${c.unidades.map((u,k)=>`<div class="row"><div class="main"><div class="t">${esc(u.nome||c.nome)}</div><div class="s">${esc(u.descricao||'')}</div></div>
-        <div class="v num">${brl(u.valor)}</div><button class="link" data-a="unidadeCliente" data-c="${esc(cnpj)}" data-k="${k}">Adicionar à lista</button></div>`).join('')}</div>`:''}
-      <div class="gt"><span>Histórico de notas</span><span>${plural(h.length,'nota','notas')}</span></div>
-      <div class="group">${h.map((x,k)=>`<div class="row"><div class="main"><div class="t">${esc(x.unidade||x.nome)}${x.situacao==='cancelada'?'<span class="badge cancel">Cancelada</span>':''}${x.situacao==='pendente'?'<span class="badge teste">A confirmar</span>':''}</div>
-        <div class="s">${x.numero?'Nº '+esc(x.numero)+' · ':''}${esc(x.data)}</div></div><div class="v num">${brl(x.valor)}</div>
-        ${x.pdf?`<button class="link" data-a="abrirNota" data-k="${esc(x.chave)}" data-tipo="pdf">PDF</button>`:''}</div>`).join('')||'<p class="hint" style="padding:16px">Nenhuma nota emitida em produção para este cliente.</p>'}</div>`;
+      <div class="tabs" style="margin-top:18px"><div class="seg" role="tablist" id="cli-tabs">${[['unidades',`Unidades · ${c.unidades.length}`],['notas',`Notas · ${h.length}`],['dados','Dados do cliente']].map(([k,t])=>`<button role="tab" data-a="cliAba" data-v="${k}" data-c="${esc(cnpj)}" aria-selected="${aba===k}">${t}</button>`).join('')}</div></div>
+      <div ${aba==='unidades'?'':'hidden'}>
+        ${c.unidades.length?`<div class="gt"><span>Último valor de cada unidade</span>${c.unidades.length>1?`<button class="link" data-a="todasUnidadesCliente" data-c="${esc(cnpj)}">+ Nota para todas</button>`:''}</div>
+        <div class="group">${c.unidades.map((u,k)=>`<div class="row"><div class="main"><div class="t">${esc(u.nome||c.nome)}</div><div class="s">${esc(u.descricao||'')}</div></div>
+          <div class="v num">${brl(u.valor)}</div><button class="btn" style="padding:6px 12px" data-a="unidadeCliente" data-c="${esc(cnpj)}" data-k="${k}" title="Prepara a nota na aba Emitir, sem emitir">+ Nota</button></div>`).join('')}</div>
+        <p class="hint">“+ Nota” prepara a nota na aba Emitir com o último valor. Nada é emitido até você confirmar lá.</p>`:'<p class="hint" style="padding:16px">Nenhuma unidade ainda. Use “Nova nota” para emitir a primeira.</p>'}
+      </div>
+      <div ${aba==='notas'?'':'hidden'}>
+        <div class="group" style="margin-top:12px">${h.map((x,k)=>`<div class="row ${x.situacao==='cancelada'?'cancelada':''}"><div class="main"><div class="t">${esc(x.unidade||x.nome)}${x.situacao==='cancelada'?'<span class="badge cancel">Cancelada</span>':''}${x.situacao==='pendente'?'<span class="badge teste">A confirmar</span>':''}</div>
+          <div class="s">${x.numero?'Nº '+esc(x.numero)+' · ':''}${esc(x.data)}</div></div><div class="v num">${brl(x.valor)}</div>
+          <button class="more" data-a="menuNotaCli" data-k="${k}" aria-haspopup="menu" aria-label="Ações da nota ${esc(x.numero)}">${ICON.mais}</button></div>`).join('')||'<p class="hint" style="padding:16px">Nenhuma nota emitida em produção para este cliente.</p>'}</div>
+      </div>
+      <div ${aba==='dados'?'':'hidden'}>
+        <div class="gt"><span>Vão sozinhos em todas as notas dele</span><button class="link" data-a="completarCliente" data-c="${esc(cnpj)}">Preencher pelo CNPJ</button></div>
+        <div class="group" id="cli-dados"><div class="field"><span class="s">Carregando…</span></div></div>
+        <p class="hint">Só o CNPJ e o nome são obrigatórios. Salva ao sair de cada campo.</p>
+      </div>`;
     this.carregarDadosCliente(cnpj);
   },
+  cliAba(_,el){ this._cliAba=el.dataset.v; this.abrirCliente(el.dataset.c); },
+  menuNotaCli(_,el){ const x=this._hc[+el.dataset.k]; this._h=this._h||[]; const i=this._h.indexOf(x);
+    const alvo=i>=0?i:(this._h.push(x),this._h.length-1); el.dataset.i=alvo; this.menuNota(_,el); },
   async carregarDadosCliente(cnpj){
     const r=await api().cliente(cnpj); if(!r.ok||!$('#cli-dados')) return; const c=r.cliente;
     const F=[['nome','Nome / Razão social',''],['im','Inscrição Municipal','Opcional'],['email','E-mail','Opcional'],['fone','Telefone','Com DDD'],
