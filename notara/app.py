@@ -835,6 +835,7 @@ class Api:
         srv = self._servico_da_nota(perfil, nota, cad)
         perfil = {**perfil, "servico": srv}
         nota = {"cnpj": doc, "nome": nome, "descricao": desc, "valor": str(valor), "cliente": cad, "info": info,
+                "competencia": nota.get("competencia") or "",
                 "servico": digitos(srv.get("cod_nacional")) + "|" + digitos(srv.get("nbs"))}
 
         quando = nfse.agora()

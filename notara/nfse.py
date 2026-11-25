@@ -190,6 +190,19 @@ def agora():
     return datetime.now(BRT) - timedelta(minutes=1)  # a Receita recusa horário no futuro
 
 
+def competencia(valor, hoje):
+    """Data de competência (quando o serviço foi prestado): pode ser passada, nunca futura."""
+    if not valor:
+        return hoje.strftime("%Y-%m-%d")
+    try:
+        d = datetime.strptime(str(valor)[:10], "%Y-%m-%d").date()
+    except ValueError:
+        raise NfseErro("Data de competência inválida.")
+    if d > hoje.date():
+        raise NfseErro("A data de competência não pode ser futura.")
+    return d.strftime("%Y-%m-%d")
+
+
 def montar_dps(empresa, nota, numero, ambiente, quando=None):
     """empresa: perfil salvo. nota: {cnpj, nome, descricao, valor}."""
     t = quando or agora()
@@ -205,7 +218,7 @@ def montar_dps(empresa, nota, numero, ambiente, quando=None):
     _el(inf, "verAplic", VER_APLIC)
     _el(inf, "serie", empresa["serie"])
     _el(inf, "nDPS", numero)
-    _el(inf, "dCompet", t.strftime("%Y-%m-%d"))
+    _el(inf, "dCompet", competencia(nota.get("competencia"), t))
     _el(inf, "tpEmit", 1)
     _el(inf, "cLocEmi", cmun)
 
