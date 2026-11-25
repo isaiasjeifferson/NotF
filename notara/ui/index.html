@@ -978,12 +978,12 @@ const app={
   pkHtml(p,s){ this.pk=this.pk||{}; this.pk[p]={cod_nacional:'',nbs:'',cod_municipal:'',iss_retido:false,...(s||{})};
     return `<div id="${p}-pk">${this.pkCorpo(p)}</div>`; },
   pkCorpo(p){ const s=this.pk[p];
-    if(!dig(s.cod_nacional)) return `<div class="group"><div class="field" id="${p}-fq"><input id="${p}-q" placeholder="O que você faz? Ex.: lavanderia, limpeza, 14.10" aria-label="Buscar serviço" autocomplete="off"></div></div>
+    if(!dig(s.cod_nacional)) return `<div class="group"><div class="field" id="${p}-fq"><input id="${p}-q" style="text-align:left" placeholder="O que você faz? Ex.: lavanderia, limpeza, 14.10" aria-label="Buscar serviço" autocomplete="off"></div></div>
       <div class="group pk-res" id="${p}-res" hidden style="margin-top:8px"></div><p class="hint">Busca na lista oficial de serviços da NFS-e Nacional.</p>`;
     return `<div class="group"><div class="row"><div class="main"><div class="t num">${fmtCod(s.cod_nacional)}</div><div class="s" style="white-space:normal">${esc(s.descricao_servico||'')}</div></div><button class="link" data-a="pkTrocar" data-p="${p}">Trocar</button></div></div>
       <div class="gt">Código NBS</div>
       <div class="group pk-res" id="${p}-nbs"></div>
-      <div class="group" style="margin-top:8px"><div class="field"><input id="${p}-qn" placeholder="Procurar outro NBS" aria-label="Procurar NBS" autocomplete="off"></div></div>
+      <div class="group" style="margin-top:8px"><div class="field"><input id="${p}-qn" style="text-align:left" placeholder="Procurar outro NBS" aria-label="Procurar NBS" autocomplete="off"></div></div>
       <p class="hint">“Indicado” são os NBS que a tabela oficial liga a este serviço. Na dúvida, confirme com a contabilidade.</p>
       <div class="group"><div class="field" id="${p}-fmun"><label for="${p}-mun">Código municipal</label><input id="${p}-mun" class="num" placeholder="Opcional" value="${esc(s.cod_municipal||'')}"></div>
         <div class="field"><span class="lbl" id="${p}-ret-l">ISS retido pelo cliente</span><span class="spacer"></span>${sw(p+'-ret',s.iss_retido)}</div></div>`; },
