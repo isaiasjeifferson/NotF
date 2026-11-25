@@ -440,3 +440,38 @@ def test_caminho_de_pdf_fora_da_pasta_e_recusado(ambiente):
     falso = ambiente.tmp / "outro.pdf"
     falso.write_bytes(b"%PDF")
     assert api._dentro_das_notas(str(falso)) is None
+
+
+def test_modo_teste_simula_localmente_com_marca_dagua(ambiente):
+    d, n = ambiente.dados, ambiente.nfse
+    api = _cadastrar(ambiente)
+    perfil = {**d.empresa(), "ambiente": "teste"}
+    receita = api._receita(perfil, api._cert(perfil), "teste")
+    assert isinstance(receita, n.ReceitaSimulada)
+    item = api._uma(perfil, api._cert(perfil), receita, dict(NOTA))
+    assert n.chave_valida(item["chave"]) and item["ambiente"] == "teste"
+    from pathlib import Path
+    from notara import danfse
+    import io
+    from pypdf import PdfReader
+    texto = PdfReader(io.BytesIO(danfse.gerar(Path(item["xml"]).read_bytes()))).pages[0].extract_text()
+    assert "SEM VALOR FISCAL" in texto
+
+
+def test_backup_leva_historico_clientes_e_xml(ambiente, tmp_path):
+    d = ambiente.dados
+    from notara import backup
+    api = _cadastrar(ambiente)
+    perfil = d.empresa()
+    receita = ReceitaFalsa()
+    receita.falhar_em = set()
+    item = api._uma(perfil, api._cert(perfil), receita, dict(NOTA))
+    arq = backup.exportar(d.empresa(), tmp_path)
+    import shutil
+    shutil.rmtree(d.pasta_dados(perfil))  # "outro computador": empresa sem histórico
+    r = backup.importar(d.empresa(), arq.read_bytes())
+    assert r["notas"] == 1 and d.historico(perfil)[0]["chave"] == item["chave"]
+    from pathlib import Path
+    assert Path(d.historico(perfil)[0]["xml"]).exists() and d.clientes(perfil)
+    with pytest.raises(ValueError):
+        backup.importar(d.empresa(), b"nao e zip")

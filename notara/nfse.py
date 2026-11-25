@@ -521,3 +521,65 @@ class Receita:
         if r.status_code not in (200, 201):
             raise NfseErro(_mensagens(dados) or f"Cancelamento recusado (código {r.status_code}).")
         return True
+
+
+class ReceitaSimulada:
+    """Modo teste local: valida e assina a DPS de verdade, mas não envia nada à Receita.
+    Gera uma NFS-e de simulação (ambiente 2), sem validade fiscal, com o mesmo formato da real."""
+
+    def __init__(self, cert=None, perfil=None):
+        self.perfil = perfil or {}
+        self._xmls = {}
+
+    def testar(self, cmun):
+        return {"municipio_ativo": True, "simulacao": True}
+
+    def dps_existe(self, ident):
+        return False
+
+    def chave_da_dps(self, ident, tentativas=1, espera=0):
+        return None
+
+    def emitir(self, xml: bytes):
+        from . import catalogo
+        dps = etree.fromstring(xml)
+        inf = dps.find(f"{{{NS}}}infDPS")
+        g = lambda cam: (inf.findtext(cam.replace("n:", f"{{{NS}}}")) or "")
+        cmun = g("n:cLocEmi")
+        cnpj = g("n:prest/n:CNPJ")
+        numero = int(g("n:nDPS") or 0)
+        agora = datetime.now()
+        base = f"{cmun:0>7}2{'2' if len(cnpj) == 14 else '1'}{cnpj:0>14}{numero:013d}{agora:%y%m}{secrets.randbelow(10**9):09d}"
+        chave = base + str(sum(int(c) * (2 + i % 8) for i, c in enumerate(reversed(base))) % 11 % 10)
+        nome_mun = self.perfil.get("municipio") or ""
+        cidade = nome_mun.split("/")[0].strip()
+        srv = catalogo.servico(g("n:serv/n:cServ/n:cTribNac")) or {}
+        valor = g("n:valores/n:vServPrest/n:vServ") or "0.00"
+        raiz = etree.Element(f"{{{NS}}}NFSe", nsmap={None: NS}, versao="1.01")
+        n = etree.SubElement(raiz, f"{{{NS}}}infNFSe", Id="NFS" + chave)
+        for tag, val in (("xLocEmi", cidade), ("xLocPrestacao", cidade), ("nNFSe", str(numero)), ("cLocIncid", cmun),
+                         ("xLocIncid", cidade), ("xTribNac", srv.get("descricao", "")), ("verAplic", "NotF-simulacao"),
+                         ("ambGer", "2"), ("tpEmis", "1"), ("cStat", "100"), ("dhProc", agora.astimezone().isoformat(timespec="seconds"))):
+            etree.SubElement(n, f"{{{NS}}}{tag}").text = val
+        emit = etree.SubElement(n, f"{{{NS}}}emit")
+        etree.SubElement(emit, f"{{{NS}}}CNPJ").text = cnpj
+        etree.SubElement(emit, f"{{{NS}}}xNome").text = self.perfil.get("nome", "")
+        uf = nome_mun.split("/")[1].strip() if "/" in nome_mun else ""
+        end = etree.SubElement(emit, f"{{{NS}}}enderNac")
+        etree.SubElement(end, f"{{{NS}}}cMun").text = cmun
+        etree.SubElement(end, f"{{{NS}}}UF").text = uf
+        vals = etree.SubElement(n, f"{{{NS}}}valores")
+        etree.SubElement(vals, f"{{{NS}}}vLiq").text = valor
+        n.append(dps)
+        saida = etree.tostring(raiz, xml_declaration=True, encoding="UTF-8")
+        self._xmls[chave] = saida
+        return chave, saida
+
+    def baixar_xml(self, chave):
+        return self._xmls.get(chave, b"")
+
+    def danfse(self, chave):
+        return b""
+
+    def cancelar(self, chave, xml: bytes):
+        return True

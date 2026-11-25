@@ -68,7 +68,5 @@ jobs:
             echo "A versão $TAG já foi publicada. Para publicar, aumente a versão em notara/__init__.py."
             exit 0
           fi
-          # cópia com o nome antigo: versões anteriores (Notara) procuram este arquivo para se atualizar
-          cp "NotF-${{ needs.build.outputs.versao }}-Instalar.exe" "Notara-${{ needs.build.outputs.versao }}-Instalar.exe"
           gh release create "$TAG" *.exe --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
             --title "NotF ${{ needs.build.outputs.versao }}" --generate-notes

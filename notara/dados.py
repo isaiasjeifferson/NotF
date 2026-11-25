@@ -313,7 +313,12 @@ def migrar_dados(origem: Path, destino: Path):
     with trava(destino):
         h_dest = ler_json(destino / "historico.json", [])
         chaves = {x.get("chave") for x in h_dest}
-        h = h_dest + [x for x in ler_json(origem / "historico.json", []) if x.get("chave") not in chaves]
+        trazidos = ler_json(origem / "historico.json", [])
+        canceladas = {x.get("chave") for x in trazidos if x.get("situacao") == "cancelada"}
+        for x in h_dest:  # cancelada em qualquer lado vale como cancelada
+            if x.get("chave") in canceladas:
+                x["situacao"] = "cancelada"
+        h = h_dest + [x for x in trazidos if x.get("chave") not in chaves]
         h.sort(key=lambda x: datetime.strptime(x.get("data", "01/01/2000 00:00"), "%d/%m/%Y %H:%M"), reverse=True)
         gravar_json(destino / "historico.json", h)
         gravar_json(destino / "clientes.json", {**ler_json(origem / "clientes.json", {}),

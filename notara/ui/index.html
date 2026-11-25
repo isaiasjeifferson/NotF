@@ -1035,7 +1035,7 @@ const app={
           <div class="field"><span class="lbl">Conexão com a Receita</span><span class="spacer"></span><button class="link" data-a="testar" id="b-testar">Testar</button></div>
           <div id="a-con" hidden style="padding:4px 16px 12px"></div>
         </div>
-        <p class="hint">${e.ambiente==='producao'?'Na produção, as notas têm validade fiscal.':e.teste_ok?'Teste concluído. Na produção, as notas têm validade fiscal.':'Emita uma nota de teste para liberar a produção. <button class="link" data-a="producaoSemTeste">O ambiente de teste não funciona?</button>'}</p>
+        <p class="hint">${e.ambiente==='producao'?'Na produção, as notas têm validade fiscal.':'No teste, a nota é simulada neste computador: nada vai à Receita e o PDF sai marcado “Sem valor fiscal”.'}</p>
         <div class="gt">Serviços</div>
         <div class="group">${(e.servicos||[s]).map((x,k)=>`<div class="row srv"><div class="main">
             <div class="t"><span class="num">${fmtCod(x.cod_nacional)}</span>${k===0?' <span class="badge ind">Padrão</span>':''}</div>
@@ -1069,6 +1069,10 @@ const app={
           <div class="group">${['producao','teste'].map(a=>['sefin','adn'].map(k=>`<div class="field col"><label for="u-${a}-${k}">${a==='producao'?'Produção':'Teste'} · ${k==='sefin'?'emissão':'PDF das notas'}</label><input id="u-${a}-${k}" value="${esc(u[a][k])}"></div>`).join('')).join('')}</div>
           <p class="hint">Endereços oficiais da Receita. Só mude se a Receita anunciar outros. <button class="link" data-a="restaurarUrls">Restaurar padrão</button> <button class="link" data-a="verRegistro">Ver detalhes técnicos</button></p>
         </details>
+        <div class="gt">Backup</div>
+        <div class="group"><button class="field click" data-a="exportarBackup"><span class="lbl" style="color:var(--blue)">Exportar backup</span></button>
+          <button class="field click" data-a="restaurarBackup"><span class="lbl" style="color:var(--blue)">Restaurar backup…</span></button></div>
+        <p class="hint">Leva ajustes, serviços, clientes, histórico e XML das notas para outro computador. O certificado não vai junto: importe-o de novo lá.</p>
         <div class="gt">Sobre</div>
         <div class="group">
           <div class="field"><span class="lbl">Versão</span><div class="val num">NotF ${esc(this.s.versao)}</div></div>
@@ -1164,6 +1168,10 @@ const app={
       lista.length>1?'-':null, lista.length>1?['Remover',()=>{ lista.splice(k,1); this.salvarServicos(lista); },'red']:null]); },
   menuLogo(_,el){ if(!this.s.empresa.logo_url) return this.escolherLogo();
     this.menu(el,[['Trocar imagem…',()=>this.escolherLogo()],['Remover logo',()=>this.removerLogo(),'red']]); },
+  async exportarBackup(){ const r=await api().exportar_backup(); this.toast(r.ok?`Backup salvo: ${r.arquivo}`:r.erro); },
+  async restaurarBackup(){ const f=await lerArquivo('.zip'); if(!f) return;
+    const r=await api().importar_backup(f.b64); if(!r.ok) return this.toast(r.erro);
+    this.s=r.estado; this.pronto(); this.ajustes('geral'); this.toast(`Backup restaurado: ${plural(r.notas,'nota nova','notas novas')}, ${plural(r.clientes,'cliente','clientes')}.`); },
   async escolherLogo(){ const f=await lerArquivo('.png,.jpg,.jpeg'); if(!f) return; const r=await api().definir_logo(f.b64); if(!r.ok) return this.toast(r.erro);
     this.s=r.estado; this.cabecalho(); this.ajustes('empresa'); },
   async removerLogo(){ const r=await api().definir_logo(''); if(r.ok){ this.s=r.estado; this.cabecalho(); this.ajustes('empresa'); } },
@@ -1203,7 +1211,7 @@ const app={
   resultadoConexao(r){
     if(!r) return '';
     const linha=(nome,x)=>`<div style="display:flex;gap:8px;align-items:flex-start;margin-top:8px"><span class="st ${x.ok?'ok':'erro'}">${x.ok?ICON.ok:ICON.erro}</span>
-      <div style="flex:1;min-width:0"><b style="font-weight:600">${nome}</b><div class="s" style="white-space:normal;user-select:text">${x.ok?'Conectado':esc(x.erro)}</div></div></div>`;
+      <div style="flex:1;min-width:0"><b style="font-weight:600">${nome}</b><div class="s" style="white-space:normal;user-select:text">${x.ok?(x.simulacao?'Simulação neste computador':'Conectado'):esc(x.erro)}</div></div></div>`;
     const amb=r.ambientes||{};
     let html=Object.keys(amb).length?Object.entries(amb).map(([k,x])=>linha(k==='producao'?'Produção':'Teste',x)).join(''):linha('Receita',{ok:r.ok,erro:r.erro});
     if(!r.ok||Object.values(amb).some(x=>!x.ok)) html+=`<div style="margin-top:8px"><button class="link" data-a="verRegistro">Ver detalhes técnicos</button></div>`;

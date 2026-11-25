@@ -111,6 +111,8 @@ class Api:
 
     @staticmethod
     def _receita(perfil, cert, ambiente=None):
+        if (ambiente or perfil["ambiente"]) == "teste":  # modo teste: simulação local, nada vai à Receita
+            return nfse.ReceitaSimulada(cert, perfil)
         return nfse.Receita(cert, (perfil.get("urls") or nfse.URLS_PADRAO)[ambiente or perfil["ambiente"]])
 
     @staticmethod
@@ -1108,6 +1110,28 @@ class Api:
             self._receita(perfil, cert, item["ambiente"]).cancelar(chave, xml)
             dados.atualizar_historico(perfil, chave, situacao="cancelada")
             return {"estado": self.estado()}
+        return self._tratar(f)
+
+    # ------------------------------------------------------------ backup
+    def exportar_backup(self):
+        def f():
+            from . import backup
+            perfil = self._perfil()
+            arq = backup.exportar(perfil, Path(perfil.get("pasta_notas") or Path.home() / "Documents" / "NotF") / "Backups")
+            self._mostrar_arquivo(arq)
+            return {"arquivo": arq.name}
+        return self._tratar(f)
+
+    def importar_backup(self, b64):
+        def f():
+            from . import backup
+            if self._envio.locked():
+                raise NfseErro("Aguarde a emissão terminar.")
+            try:
+                r = backup.importar(self._perfil(), base64.b64decode(b64))
+            except ValueError as e:
+                raise NfseErro(str(e))
+            return {**r, "estado": self.estado()}
         return self._tratar(f)
 
     # ------------------------------------------------------------ arquivos
