@@ -3,7 +3,9 @@ import base64
 import json
 import os
 import re
+import shutil
 import socket
+import threading
 import sys
 import time
 import uuid
@@ -99,25 +101,64 @@ def desproteger(dados: bytes) -> bytes:
 
 
 # ---------------------------------------------------------------- JSON com trava
+class ArquivoCorrompido(OSError):
+    pass
+
+
+_TRAVAS_LOCAIS = {}
+_TRAVA_DAS_TRAVAS = threading.Lock()
+
+
+def _trava_local(p: Path):
+    with _TRAVA_DAS_TRAVAS:
+        return _TRAVAS_LOCAIS.setdefault(str(p.resolve()), threading.RLock())
+
+
 def ler_json(p: Path, padrao):
+    """Arquivo inexistente: padrão. Arquivo danificado: tenta a cópia anterior; nunca finge que está vazio."""
     try:
         return json.loads(p.read_text(encoding="utf-8"))
-    except (FileNotFoundError, ValueError):
+    except FileNotFoundError:
         return padrao
+    except (ValueError, UnicodeDecodeError):
+        bak = p.with_name(p.name + ".bak")
+        try:
+            dados = json.loads(bak.read_text(encoding="utf-8"))
+        except (OSError, ValueError, UnicodeDecodeError):
+            dados = None
+        guardado = p.with_name(f"{p.name}.danificado-{datetime.now():%Y%m%d-%H%M%S}")
+        try:
+            shutil.copy2(p, guardado)
+        except OSError:
+            pass
+        if dados is not None:
+            return dados
+        raise ArquivoCorrompido(f"O arquivo {p.name} está danificado. Uma cópia foi guardada em {guardado.name}; "
+                                "fale com o suporte antes de continuar.")
 
 
 def gravar_json(p: Path, dados):
     p.parent.mkdir(parents=True, exist_ok=True)
-    tmp = p.with_name(p.name + f".{os.getpid()}.tmp")
-    tmp.write_text(json.dumps(dados, ensure_ascii=False, indent=1), encoding="utf-8")
-    for tentativa in range(10):  # OneDrive e antivírus seguram o arquivo por instantes
-        try:
-            os.replace(tmp, p)
-            return
-        except PermissionError:
-            if tentativa == 9:
-                raise
-            time.sleep(0.3)
+    with _trava_local(p):
+        tmp = p.with_name(f"{p.name}.{uuid.uuid4().hex}.tmp")
+        with open(tmp, "w", encoding="utf-8") as f:
+            f.write(json.dumps(dados, ensure_ascii=False, indent=1))
+            f.flush()
+            os.fsync(f.fileno())
+        if p.exists():
+            try:
+                shutil.copy2(p, p.with_name(p.name + ".bak"))  # cópia da versão anterior, para recuperar
+            except OSError:
+                pass
+        for tentativa in range(10):  # OneDrive e antivírus seguram o arquivo por instantes
+            try:
+                os.replace(tmp, p)
+                return
+            except PermissionError:
+                if tentativa == 9:
+                    tmp.unlink(missing_ok=True)
+                    raise
+                time.sleep(0.3)
 
 
 @contextmanager
@@ -160,9 +201,20 @@ def trava(pasta: Path, tempo=20):
 
 
 # ---------------------------------------------------------------- ajustes gerais
+_AJUSTES = threading.RLock()
+
+
 def ajustes():
     APP.mkdir(parents=True, exist_ok=True)
     return ler_json(APP / "ajustes.json", {"empresas": {}, "ativa": None})
+
+
+def alterar_ajustes(fn):
+    """Lê, altera e grava ajustes.json sem perder alterações feitas ao mesmo tempo por outra thread."""
+    with _AJUSTES:
+        a = ajustes()
+        fn(a)
+        salvar_ajustes(a)
 
 
 def salvar_ajustes(a):
@@ -176,24 +228,26 @@ def empresa(cnpj=None):
 
 
 def salvar_empresa(perfil, ativar=False):
-    a = ajustes()
-    atual = a["empresas"].get(perfil["cnpj"], {})
-    atual.update(perfil)
-    a["empresas"][perfil["cnpj"]] = atual
-    if ativar:
-        a["ativa"] = perfil["cnpj"]
-    salvar_ajustes(a)
-    return atual
+    with _AJUSTES:  # a emissão (outra thread) e a tela gravam aqui ao mesmo tempo
+        a = ajustes()
+        atual = a["empresas"].get(perfil["cnpj"], {})
+        atual.update(perfil)
+        a["empresas"][perfil["cnpj"]] = atual
+        if ativar:
+            a["ativa"] = perfil["cnpj"]
+        salvar_ajustes(a)
+        return atual
 
 
 def remover_empresa(cnpj):
     if not re.fullmatch(r"\d{14}", str(cnpj)):
         return
-    a = ajustes()
-    a["empresas"].pop(cnpj, None)
-    if a.get("ativa") == cnpj:
-        a["ativa"] = next(iter(a["empresas"]), None)
-    salvar_ajustes(a)
+    with _AJUSTES:
+        a = ajustes()
+        a["empresas"].pop(cnpj, None)
+        if a.get("ativa") == cnpj:
+            a["ativa"] = next(iter(a["empresas"]), None)
+        salvar_ajustes(a)
     for f in (APP / "credenciais").glob(f"{cnpj}.*"):
         f.unlink()
 

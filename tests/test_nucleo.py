@@ -403,3 +403,40 @@ def test_envio_por_email_com_anexos_e_cc(ambiente, monkeypatch):
     assert d.clientes(perfil)[item["cnpj"]]["email"] == "cliente@x.com"
     assert d.historico(perfil)[0]["enviado_para"].startswith("cliente@x.com")
     assert not api.enviar_email(item["chave"], {"para": "invalido"})["ok"]
+
+
+def test_json_danificado_nao_apaga_historico(ambiente):
+    d = ambiente.dados
+    p = ambiente.tmp / "h.json"
+    d.gravar_json(p, [{"a": 1}])
+    d.gravar_json(p, [{"a": 1}, {"b": 2}])
+    p.write_text('[{"a": 1}, {"b"', encoding="utf-8")  # gravação cortada
+    assert d.ler_json(p, []) == [{"a": 1}]  # volta para a cópia anterior, não para vazio
+    p.with_name("h.json.bak").unlink()
+    with pytest.raises(d.ArquivoCorrompido):
+        d.ler_json(p, [])
+
+
+def test_pendente_so_sai_com_resposta_confirmada(ambiente):
+    d, n = ambiente.dados, ambiente.nfse
+    api = _cadastrar(ambiente)
+    perfil = d.empresa()
+    receita = ReceitaFalsa()
+    receita.sem_resposta = True
+    with pytest.raises(n.SemResposta):
+        api._uma(perfil, api._cert(perfil), receita, dict(NOTA))
+    ident = d.historico(perfil)[0]["ident"]
+
+    class Fora(ReceitaFalsa):
+        def chave_da_dps(self, i, tentativas=1, espera=0):
+            raise n.SemResposta("fora do ar")
+    api._receita = lambda *a: Fora()
+    assert not api.confirmar_pendente(ident)["ok"]
+    assert d.historico(perfil)[0]["situacao"] == "pendente"
+
+
+def test_caminho_de_pdf_fora_da_pasta_e_recusado(ambiente):
+    api = _cadastrar(ambiente)
+    falso = ambiente.tmp / "outro.pdf"
+    falso.write_bytes(b"%PDF")
+    assert api._dentro_das_notas(str(falso)) is None

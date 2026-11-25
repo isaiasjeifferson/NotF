@@ -448,7 +448,8 @@ class Receita:
         return r.status_code == 200
 
     def chave_da_dps(self, ident, tentativas=2, espera=4):
-        """Descobre se uma DPS já virou nota. Usado quando a resposta do envio se perdeu."""
+        """Descobre se uma DPS já virou nota. Devolve a chave; None só se a Receita disser que não existe (404).
+        Sem resposta confiável, levanta SemResposta: quem chama não pode concluir que a nota não existe."""
         for i in range(tentativas):
             try:
                 r = self._req("GET", f"{self.urls['sefin']}/dps/{ident}")
@@ -462,7 +463,7 @@ class Receita:
                 pass
             if i < tentativas - 1:
                 time.sleep(espera)
-        return None
+        raise SemResposta("A Receita não confirmou a situação desta DPS.")
 
     def emitir(self, xml: bytes):
         r = self._req("POST", f"{self.urls['sefin']}/nfse", json={"dpsXmlGZipB64": _gz64(xml)})

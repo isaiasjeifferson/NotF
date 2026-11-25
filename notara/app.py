@@ -174,18 +174,16 @@ class Api:
 
     def definir_tema(self, tema):
         if tema in ("auto", "claro", "escuro"):
-            a = dados.ajustes()
-            a["tema"] = tema
-            dados.salvar_ajustes(a)
+            dados.alterar_ajustes(lambda a: a.__setitem__("tema", tema))
         return {"ok": True}
 
     def trocar_empresa(self, cnpj):
         if self._envio.locked():
             return {"ok": False, "erro": "Aguarde o envio terminar."}
-        a = dados.ajustes()
-        if cnpj in a["empresas"]:
-            a["ativa"] = cnpj
-            dados.salvar_ajustes(a)
+        def ativar(a):
+            if cnpj in a["empresas"]:
+                a["ativa"] = cnpj
+        dados.alterar_ajustes(ativar)
         return {"ok": True, "estado": self.estado()}
 
     # ------------------------------------------------------------ cadastro
@@ -869,7 +867,10 @@ class Api:
                 aviso = ("A Inscrição Municipal foi tirada da nota: ela não está no cadastro nacional da NFS-e. "
                          "Ela continua salva em Ajustes.")
         except SemResposta:
-            chave = receita.chave_da_dps(ident)
+            try:
+                chave = receita.chave_da_dps(ident)
+            except SemResposta:
+                chave = None
             if not chave:
                 self._registrar_pendente(perfil, nota, unidade, ident, amb)
                 raise SemResposta("Sem confirmação da Receita. A nota ficou no Histórico como “A confirmar”: "
@@ -985,18 +986,20 @@ class Api:
             if not item:
                 raise NfseErro("Nota não encontrada.")
             receita = self._receita(perfil, self._cert(perfil, senha), item["ambiente"])
-            chave = receita.chave_da_dps(ident, tentativas=1)
+            try:
+                chave = receita.chave_da_dps(ident, tentativas=1)  # None só quando a Receita confirma que não existe
+            except SemResposta:
+                raise NfseErro("A Receita não respondeu. A nota continua “A confirmar”; tente de novo em alguns minutos.")
+            if chave:
+                nota = {k: item[k] for k in ("cnpj", "nome", "descricao")} | {"valor": str(item["valor"])}
+                self._concluir(perfil, receita, nota, item["unidade"], chave, receita.baixar_xml(chave),
+                               item["ambiente"], nfse.agora())
             pasta = dados.pasta_dados(perfil)
-            with dados.trava(pasta):
+            with dados.trava(pasta):  # só sai da lista depois de confirmado (inexistente, ou registrada acima)
                 h = dados.ler_json(pasta / "historico.json", [])
                 h = [x for x in h if x.get("ident") != ident or x.get("situacao") != "pendente"]
                 dados.gravar_json(pasta / "historico.json", h)
-            if not chave:
-                return {"estado": self.estado(), "emitida": False}
-            nota = {k: item[k] for k in ("cnpj", "nome", "descricao")} | {"valor": str(item["valor"])}
-            self._concluir(perfil, receita, nota, item["unidade"], chave, receita.baixar_xml(chave),
-                           item["ambiente"], nfse.agora())
-            return {"estado": self.estado(), "emitida": True}
+            return {"estado": self.estado(), "emitida": bool(chave)}
         return self._tratar(f)
 
     def _item(self, perfil, chave):
@@ -1011,8 +1014,9 @@ class Api:
         """PDF da nota a partir do XML salvo (ou baixado de novo); fica gravado na pasta de notas."""
         chave = item["chave"]
         xml = b""
-        if item.get("xml") and Path(item["xml"]).exists():
-            xml = Path(item["xml"]).read_bytes()
+        arq = self._dentro_das_notas(item.get("xml"))
+        if arq and arq.suffix.lower() == ".xml":
+            xml = arq.read_bytes()
         conteudo = self._pdf_local(xml)
         if not conteudo:
             receita = self._receita(perfil, self._cert(perfil, senha), item["ambiente"])
@@ -1028,13 +1032,14 @@ class Api:
 
     def _pdf_atual(self, perfil, item, senha=None):
         """PDF no modelo atual: notas antigas são redesenhadas a partir do XML guardado."""
-        if item.get("pdf") and Path(item["pdf"]).exists() and item.get("pdf_v") == PDF_V:
-            return Path(item["pdf"])
+        atual = self._dentro_das_notas(item.get("pdf"))
+        if atual and atual.suffix.lower() == ".pdf" and item.get("pdf_v") == PDF_V:
+            return atual
         try:
             return self._gerar_pdf(perfil, item, senha)
         except NfseErro:
-            if item.get("pdf") and Path(item["pdf"]).exists():
-                return Path(item["pdf"])
+            if atual and atual.suffix.lower() == ".pdf":
+                return atual
             raise
 
     def salvar_pdfs(self, chaves, senha=None):

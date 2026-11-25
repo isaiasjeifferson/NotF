@@ -22,7 +22,7 @@
 :root[data-tema=escuro] .seg button[aria-selected=true],:root[data-tema=escuro] .seg button[aria-checked=true]{background:#636366}
 :root[data-tema=escuro] .busca-cli input{background:#1C1C1E}
 :root[data-tema=escuro] .toast{background:rgba(58,58,60,.96)}
-@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+@media (prefers-reduced-motion:reduce){*:not(.spin){animation:none!important;transition:none!important}}
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%}
 body{background:var(--bg);color:var(--label);font-size:14px;line-height:1.4;-webkit-font-smoothing:antialiased;display:flex;flex-direction:column;overflow:hidden;user-select:none}
@@ -106,11 +106,22 @@ main{flex:1;overflow:auto;padding:0 32px 24px}
 .check-n{width:22px;height:22px;border-radius:50%;border:1.5px solid var(--label3);display:grid;place-items:center;color:#fff;flex:none}
 .check-n[aria-checked=true]{background:var(--blue);border-color:var(--blue)}
 .row.apagada .t,.row.apagada .s{color:var(--label3)}
-@keyframes brilho{0%{background-position:100% 0}100%{background-position:-100% 0}}
-.field.carregando input{color:transparent;border-radius:6px;background:linear-gradient(90deg,var(--fill) 25%,var(--fill2) 50%,var(--fill) 75%);background-size:200% 100%;animation:brilho 1.1s linear infinite}
-.barra-sel{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);display:flex;align-items:center;gap:8px;background:var(--bg2,#fff);padding:10px 12px 10px 18px;border-radius:14px;box-shadow:0 8px 30px rgba(0,0,0,.18);z-index:40;min-width:620px}
-.barra-sel .n{font-weight:600;white-space:nowrap} :root[data-tema=escuro] .barra-sel{background:#2C2C2E}
+@keyframes skeleton{0%{background-position:100% 0}100%{background-position:-100% 0}}
+.field.carregando input{color:transparent;border-radius:6px;background:linear-gradient(90deg,var(--fill) 25%,var(--fill2) 50%,var(--fill) 75%);background-size:200% 100%;animation:skeleton 1.1s linear infinite}
+.barra-sel{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);display:flex;align-items:center;gap:8px;background:var(--card);padding:10px 12px 10px 18px;border-radius:14px;box-shadow:0 8px 30px rgba(0,0,0,.18);z-index:40;min-width:620px}
+.barra-sel .n{font-weight:600;white-space:nowrap}
 .filtro{display:flex;align-items:center}
+:root{--dur-1:120ms;--dur-2:200ms;--ease:cubic-bezier(.2,.8,.2,1);--ease-pop:cubic-bezier(.3,1.25,.5,1)}
+.scrim.saindo{animation:fadeout var(--dur-1) forwards} .scrim.saindo .sheet{animation:popout var(--dur-1) forwards}
+@keyframes fadeout{to{opacity:0}} @keyframes popout{to{opacity:0;transform:scale(.97)}}
+.menu{animation:menuin var(--dur-1) var(--ease-pop);transform-origin:top left} @keyframes menuin{from{opacity:0;transform:scale(.96) translateY(-4px)}}
+.check-n{transition:background var(--dur-1),border-color var(--dur-1),transform var(--dur-1)} .check-n:active{transform:scale(.88)}
+.check-n[aria-checked=true] svg{animation:menuin var(--dur-2) var(--ease-pop)}
+.btn{transition:transform var(--dur-1) var(--ease),background var(--dur-1),opacity var(--dur-1)} .btn:active:not(:disabled){transform:scale(.97)}
+.seg button{transition:background var(--dur-2) var(--ease),box-shadow var(--dur-2)}
+.barra-sel{animation:subir var(--dur-2) var(--ease)} @keyframes subir{from{opacity:0;transform:translate(-50%,12px)}}
+.view.on,.a-pane:not([hidden]){animation:fadein var(--dur-2) var(--ease)} @keyframes fadein{from{opacity:0;transform:translateY(3px)}}
+.row.click,.field.click{transition:background var(--dur-1)}
 .aj-cab{display:flex;align-items:center;gap:14px;margin:2px 0 14px}
 .aj-logo{position:relative;width:64px;height:64px;border-radius:16px;flex:none;padding:0;overflow:hidden;background:#fff;box-shadow:inset 0 0 0 1px var(--sep)} .aj-logo img{width:100%;height:100%;object-fit:contain} .aj-logo .avatar{border-radius:16px} .aj-logo .lapis{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.45);color:#fff;opacity:0;transition:opacity .15s} .aj-logo:hover .lapis,.aj-logo:focus-visible .lapis{opacity:1}
 .pk-res{max-height:300px;overflow:auto} .pk-res .row{min-height:60px;padding:12px 16px;gap:12px} .pk-res .t{font-size:14px;margin-bottom:2px} .pk-res .s{white-space:normal;line-height:1.35}
@@ -602,7 +613,7 @@ const app={
         <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">${tudo?'<path d="M5 12.5l4.5 4.5L19 7.5"/>':'<path d="M12 7v6M12 17h.01"/>'}</svg></div>
       <div class="main">
         <b style="font-size:16px">${tudo?(ok===1?'Nota emitida':`${ok} notas emitidas`):`${plural(ok,'nota emitida','notas emitidas')} · ${plural(erro,'com problema','com problema')}`}</b>
-        <div class="s" style="white-space:normal;margin-top:2px">${[ok?brl(total):'',faixa,ok?(semPdf?`PDF em preparo para ${plural(semPdf,'nota','notas')}. O NotF busca sozinho.`:'PDFs salvos na pasta.'):'',erro?'Corrija as notas marcadas e tente de novo.':''].filter(Boolean).join(' · ')}</div>
+        <div class="s" style="white-space:normal;margin-top:2px">${[ok?brl(total):'',faixa,ok?(semPdf?`PDF em preparo para ${plural(semPdf,'nota','notas')}. `:'PDFs salvos na pasta.'):'',erro?'Corrija as notas marcadas e tente de novo.':''].filter(Boolean).join(' · ')}</div>
       </div>
       <div style="display:flex;gap:8px;flex:none">${ok?'<button class="btn" data-a="verHistorico">Ver no histórico</button>':''}${ok?'<button class="btn" data-a="abrirPasta">Abrir pasta</button>':''}</div></div>`;
   },
@@ -639,7 +650,7 @@ const app={
     if(st?.status==='erro'){ esq=`<div class="st erro">${ICON.erro}</div>`; extra=`<div class="err">${esc(st.msg)}</div>`; }
     if(st?.status==='incerto'){ esq=`<div class="st incerto">${ICON.erro}</div>`; extra=`<div class="err warn">${esc(st.msg)}</div>`; }
     if(st?.status==='ok'){ esq=`<div class="st ok">${ICON.ok}</div>`;
-      dir+=st.item.pdf?`<button class="link" data-a="abrirNota" data-k="${esc(st.item.chave)}" data-tipo="pdf">Nº ${esc(st.item.numero)} · PDF</button>`:`<span class="s" title="A Receita ainda não liberou o PDF. O NotF busca sozinho.">Nº ${esc(st.item.numero)} · PDF em preparo</span>`;
+      dir+=st.item.pdf?`<button class="link" data-a="abrirNota" data-k="${esc(st.item.chave)}" data-tipo="pdf">Nº ${esc(st.item.numero)} · PDF</button>`:`<span class="s" title="A Receita ainda não liberou o PDF. ">Nº ${esc(st.item.numero)} · PDF em preparo</span>`;
       if(st.item.aviso) extra=`<div class="err warn">${esc(st.item.aviso)}</div>`; }
     if(this.fase==='pronto'&&!st) esq='<span class="badge" title="Não selecionada neste envio">Depois</span>';
     const acoes=edit?`<button class="acao" data-a="editar" data-i="${i}" title="Editar" aria-label="Editar nota de ${rot}">${ICON.lapis}</button>
@@ -695,9 +706,8 @@ const app={
         <div class="field" id="ff-val"><label for="f-val">Valor</label><input id="f-val" class="num" value="${x.valor?fmtNum(x.valor):''}" placeholder="R$ 0,00"></div>
       </div>${pre&&x.valor?'<p class="hint">Preenchido com o último valor. Altere se mudou.</p>':''}
       ${(this.s.empresa.servicos||[]).length>1?`<div class="gt">Serviço</div><div class="group"><div class="field"><select id="f-srv" aria-label="Serviço" style="flex:1">
-        <option value="">Automático · o último usado com este cliente</option>${this.s.empresa.servicos.map(v=>{const c=v.cod_nacional+'|'+(v.nbs||'');return `<option value="${c}" ${x.servico===c?'selected':''}>${fmtCod(v.cod_nacional)} · ${esc(nomeSrv(v))}</option>`}).join('')}</select></div></div>`:''}
-      <details id="f-cli-det" ${dig(x.cnpj).length>=11?'':'hidden'}><summary>Dados do cliente · vão na nota</summary><div class="group" id="f-cli"><div class="field"><span class="s">Carregando…</span></div></div>
-        <p class="hint">É o mesmo cadastro da aba Clientes: o que mudar aqui vale lá e nas próximas notas.</p></details>
+        <option value="">Automático</option>${this.s.empresa.servicos.map(v=>{const c=v.cod_nacional+'|'+(v.nbs||'');return `<option value="${c}" ${x.servico===c?'selected':''}>${fmtCod(v.cod_nacional)} · ${esc(nomeSrv(v))}</option>`}).join('')}</select></div></div>`:''}
+      <details id="f-cli-det" ${dig(x.cnpj).length>=11?'':'hidden'}><summary>Dados do cliente</summary><div class="group" id="f-cli"><div class="field"><span class="s">Carregando…</span></div></div></details>
       <div class="gt">Descrição</div>
       <div class="group"><div class="field" id="ff-desc"><textarea id="f-desc" aria-label="Descrição">${esc(x.descricao)}</textarea></div></div>`,
       novo?'Adicionar':'Salvar', async()=>{
@@ -789,7 +799,7 @@ const app={
     const i=$('#q-clientes'); i.oninput=()=>{ this._qc=i.value; const pos=i.selectionStart; this.renderClientes().then(()=>{ const n=$('#q-clientes'); n.focus(); n.setSelectionRange(pos,pos); }); };
   },
   abrirClienteBtn(_,el){ this._cliAba='unidades'; this.abrirCliente(el.dataset.c); },
-  fecharCliente(){ this._cliAberto=null; this.renderClientes(); },
+  fecharCliente(){ if(this.selModo){ this.selModo=false; this.selH.clear(); this.barraSel(); } this._cliAberto=null; this.renderClientes(); },
   async abrirCliente(cnpj){
     this._cliAberto=cnpj; if(!this._clis) this._clis=await api().clientes_resumo();
     const c=this._clis.find(x=>x.cnpj===cnpj); if(!c){ this._cliAberto=null; return this.renderClientes(); }
@@ -802,10 +812,9 @@ const app={
         <div><b>${brl(media)}</b><span>valor médio</span></div><div><b>${esc(c.ultima?c.ultima.split(' ')[0]:'—')}</b><span>última nota</span></div></div>
       <div class="tabs" style="margin-top:18px"><div class="seg" role="tablist" id="cli-tabs">${[['unidades',`Unidades · ${c.unidades.length}`],['notas',`Notas · ${h.length}`],['dados','Dados do cliente']].map(([k,t])=>`<button role="tab" data-a="cliAba" data-v="${k}" data-c="${esc(cnpj)}" aria-selected="${aba===k}">${t}</button>`).join('')}</div></div>
       <div ${aba==='unidades'?'':'hidden'}>
-        ${c.unidades.length?`<div class="gt"><span>Último valor de cada unidade</span>${c.unidades.length>1?`<button class="link" data-a="todasUnidadesCliente" data-c="${esc(cnpj)}">+ Nota para todas</button>`:''}</div>
+        ${c.unidades.length?`<div class="gt"><span></span>${c.unidades.length>1?`<button class="link" data-a="todasUnidadesCliente" data-c="${esc(cnpj)}">+ Nota para todas</button>`:''}</div>
         <div class="group">${c.unidades.map((u,k)=>`<div class="row"><div class="main"><div class="t">${esc(u.nome||c.nome)}</div><div class="s">${esc(u.descricao||'')}</div></div>
-          <div class="v num">${brl(u.valor)}</div><button class="btn" style="padding:6px 12px" data-a="unidadeCliente" data-c="${esc(cnpj)}" data-k="${k}" title="Prepara a nota na aba Emitir, sem emitir">+ Nota</button></div>`).join('')}</div>
-        <p class="hint">“+ Nota” prepara a nota na aba Emitir com o último valor. Nada é emitido até você confirmar lá.</p>`:'<p class="hint" style="padding:16px">Nenhuma unidade ainda. Use “Nova nota” para emitir a primeira.</p>'}
+          <div class="v num">${brl(u.valor)}</div><button class="btn" style="padding:6px 12px" data-a="unidadeCliente" data-c="${esc(cnpj)}" data-k="${k}" title="Prepara a nota na aba Emitir, sem emitir">+ Nota</button></div>`).join('')}</div>`:'<p class="hint" style="padding:16px">Nenhuma unidade ainda. Use “Nova nota” para emitir a primeira.</p>'}
       </div>
       <div ${aba==='notas'?'':'hidden'}>
         <div class="filtro"><span class="spacer"></span><button class="link" data-a="modoSel">${this.selModo?'Concluir':'Selecionar'}</button></div>
@@ -814,13 +823,12 @@ const app={
           <button class="more" data-a="menuNotaCli" data-k="${k}" aria-haspopup="menu" aria-label="Ações da nota ${esc(x.numero)}">${ICON.mais}</button></div>`).join('')||'<p class="hint" style="padding:16px">Nenhuma nota emitida em produção para este cliente.</p>'}</div>
       </div>
       <div ${aba==='dados'?'':'hidden'}>
-        <div class="gt"><span>Vão sozinhos em todas as notas dele</span><button class="link" data-a="completarCliente" data-c="${esc(cnpj)}">Preencher pelo CNPJ</button></div>
+        <div class="gt"><span></span><button class="link" data-a="completarCliente" data-c="${esc(cnpj)}">Preencher pelo CNPJ</button></div>
         <div class="group" id="cli-dados"><div class="field"><span class="s">Carregando…</span></div></div>
-        <p class="hint">Só o CNPJ e o nome são obrigatórios. Salva ao sair de cada campo.</p>
       </div>`;
     this.carregarDadosCliente(cnpj);
   },
-  cliAba(_,el){ this._cliAba=el.dataset.v; this.abrirCliente(el.dataset.c); },
+  cliAba(_,el){ if(this.selModo){ this.selModo=false; this.selH.clear(); this.barraSel(); } this._cliAba=el.dataset.v; this.abrirCliente(el.dataset.c); },
   menuNotaCli(_,el){ const x=this._hc[+el.dataset.k]; this._h=this._h||[]; const i=this._h.indexOf(x);
     const alvo=i>=0?i:(this._h.push(x),this._h.length-1); el.dataset.i=alvo; this.menuNota(_,el); },
   async carregarDadosCliente(cnpj,box='#cli-dados'){
@@ -889,7 +897,7 @@ const app={
     this._h=h; const meses=new Map(); this._meses=meses;
     h.forEach((x,i)=>{ const [,m,a]=x.data.split(' ')[0].split('/'); const k=`${MESES[+m-1]} de ${a}`; if(!meses.has(k)) meses.set(k,[]); meses.get(k).push(i); });
     $('#hist').innerHTML=filtro+[...meses].map(([m,idx])=>`
-      <div class="gt"><span>${this.selModo?`<button class="link" data-a="selMes" data-m="${esc(m)}">${idx.every(i=>this.selH.has(h[i].chave))?'Desmarcar':'Marcar'} ${esc(m)}</button>`:esc(m)}</span><span><span class="num">${brl(idx.map(i=>h[i]).filter(x=>x.situacao==='emitida'&&x.ambiente==='producao').reduce((a,x)=>a+x.valor,0))} emitidos</span> · <button class="link" data-a="salvarPdfs" data-m="${esc(m)}">Salvar PDFs</button></span></div>
+      <div class="gt"><span>${this.selModo?`<button class="link" data-a="selMes" data-m="${esc(m)}">${idx.every(i=>this.selH.has(h[i].chave))?'Desmarcar':'Marcar'} ${esc(m)}</button>`:esc(m)}</span><span><span class="num">Total ${brl(idx.map(i=>h[i]).filter(x=>x.situacao==='emitida'&&x.ambiente==='producao').reduce((a,x)=>a+x.valor,0))}</span> · <button class="link" data-a="salvarPdfs" data-m="${esc(m)}">Exportar PDFs</button></span></div>
       <div class="group">${idx.map(i=>{const x=h[i];return `<div class="row ${x.situacao==='cancelada'?'cancelada':''}">${this.selModo&&x.chave?`<button class="check-n" role="checkbox" aria-checked="${this.selH.has(x.chave)}" data-a="selNota" data-k="${esc(x.chave)}" aria-label="Selecionar nota ${esc(x.numero)}">${this.selH.has(x.chave)?ICON.check:''}</button>`:''}
         <div class="main"><div class="t">${esc(x.unidade||x.nome)}${x.ambiente==='teste'?'<span class="badge teste">Teste</span>':''}${x.situacao==='cancelada'?'<span class="badge cancel">Cancelada</span>':''}${x.situacao==='pendente'?'<span class="badge teste">A confirmar</span>':''}</div>
         <div class="s">${x.numero?'Nº '+esc(x.numero)+' · ':''}${esc(x.data)} · ${esc(x.nome)}</div></div>
@@ -912,7 +920,7 @@ const app={
   barraSel(){ let b=$('#barra-sel'); if(!b){ b=document.createElement('div'); b.id='barra-sel'; b.className='barra-sel'; document.body.appendChild(b); }
     const n=this.selH.size; b.hidden=!this.selModo;
     b.innerHTML=`<span class="n">${n?plural(n,'nota selecionada','notas selecionadas'):'Selecione as notas'}</span><span class="spacer"></span>
-      <button class="btn" data-a="selAcao" data-v="pdf" ${n?'':'disabled'}>Salvar PDFs</button><button class="btn" data-a="selAcao" data-v="email" ${n?'':'disabled'}>Enviar por e-mail</button>
+      <button class="btn" data-a="selAcao" data-v="pdf" ${n?'':'disabled'}>Exportar PDFs</button><button class="btn" data-a="selAcao" data-v="email" ${n?'':'disabled'}>Enviar por e-mail</button>
       <button class="btn" data-a="selAcao" data-v="imprimir" ${n?'':'disabled'}>Imprimir</button><button class="btn primary" data-a="modoSel">Concluir</button>`; },
   async selAcao(_,el){ const ks=[...this.selH], v=el.dataset.v;
     const canc=(this.s.historico||[]).filter(x=>ks.includes(x.chave)&&x.situacao!=='emitida').length; const ok=ks.filter(k=>(this.s.historico||[]).find(x=>x.chave===k)?.situacao==='emitida');
@@ -934,7 +942,7 @@ const app={
       x.situacao==='emitida'&&['Enviar por e-mail',()=>this.enviarNota(x,'email')],
       x.situacao==='emitida'&&['Enviar por WhatsApp',()=>this.enviarNota(x,'whatsapp')],
       x.situacao==='emitida'&&['Imprimir',async()=>{ const r=await this.comSenha(sn=>api().imprimir_nota(x.chave,sn)); if(r&&!r.ok) this.toast(r.erro); }],
-      ['Emitir de novo (clonar)',()=>this.clonarNota(x)],
+      ['Duplicar',()=>this.clonarNota(x)],
       '-',
       ['Consultar no site da Receita',()=>{navigator.clipboard.writeText(x.chave);api().consultar_no_site();this.toast('Chave copiada. Cole no campo da consulta.')}],
       x.situacao==='emitida'&&'-',
@@ -1054,28 +1062,6 @@ const app={
             <button class="link" id="b-upd" data-a="${this.update?'atualizar':'buscarAtualizacao'}">${this.update?'Atualizar agora':'Buscar atualização'}</button></div>
         </div>`,
     };
-    const m=e.envio_email||{};
-    panes.email=`<div class="group">
-          <div class="field"><span class="lbl">Conta</span><span class="spacer"></span>${segBtns('m-prov',[['gmail','Gmail'],['outlook','Outlook'],['outro','Outro']],m.provedor||'gmail')}</div>
-          <div class="field" id="fm-usuario"><label for="m-usuario">Seu e-mail</label><input id="m-usuario" value="${esc(m.usuario||'')}" placeholder="voce@empresa.com.br"></div>
-          <div class="field" id="fm-senha"><label for="m-senha">Senha de app</label><input id="m-senha" type="password" autocomplete="off" placeholder="${m.senha_ok?'Guardada · digite para trocar':'16 letras'}"><button class="olho" data-a="olho" data-alvo="m-senha" aria-label="Mostrar senha">Mostrar</button></div>
-          ${m.provedor==='outro'?`<div class="field" id="fm-servidor"><label for="m-servidor">Servidor SMTP</label><input id="m-servidor" value="${esc(m.servidor||'')}"></div>
-          <div class="field" id="fm-porta"><label for="m-porta">Porta</label><input id="m-porta" class="num" value="${esc(m.porta||587)}"></div>`:''}
-          <div class="field"><span class="lbl">Conexão</span><span class="spacer"></span><span class="s" id="m-teste-r"></span><button class="link" data-a="testarEmail">Testar</button></div>
-        </div>
-        <p class="hint">${m.provedor==='outlook'?'No Outlook/Microsoft 365: conta › Segurança › Senhas de app.':'No Gmail: Conta Google › Segurança › Verificação em duas etapas › Senhas de app.'} A senha fica guardada protegida neste computador.</p>
-        <div class="gt">Mensagem</div>
-        <div class="group">
-          <div class="field"><label for="m-nome">Nome do remetente</label><input id="m-nome" value="${esc(m.nome_remetente||'')}" placeholder="${esc(e.apelido||e.nome)}"></div>
-          <div class="field" id="fm-resp"><label for="m-resp">Responder para</label><input id="m-resp" value="${esc(m.responder_para||'')}" placeholder="Opcional"></div>
-          <div class="field" id="fm-cc"><label for="m-cc">Sempre com cópia (CC)</label><input id="m-cc" value="${esc(m.cc_padrao||'')}" placeholder="Ex.: seu e-mail, contabilidade"></div>
-          <div class="field col"><label for="m-assunto">Assunto</label><input id="m-assunto" value="${esc(m.assunto||'')}"></div>
-          <div class="field col"><label for="m-msg">Texto</label><textarea id="m-msg" rows="7">${esc(m.mensagem||'')}</textarea></div>
-        </div>
-        <p class="hint">Vão sozinhos: {numero}, {cliente}, {unidade}, {valor}, {chave}, {mes}, {empresa}. O PDF e o XML seguem anexados.</p>
-        <div class="group" style="margin-top:12px"><div class="field"><span class="lbl" id="m-auto-l">Enviar sozinho ao emitir</span><span class="spacer"></span>${sw('m-auto',m.auto)}</div></div>
-        <p class="hint">Cada nota emitida em produção vai para o e-mail do cliente (e os CCs dele) logo depois de autorizada. Clientes sem e-mail ficam de fora.</p>`;
-    delete panes.email; // envio direto por conta de e-mail fica desligado por enquanto
     const nomes={empresa:'Empresa',notas:'Notas',geral:'Geral'};
     const cab=`<div class="aj-cab"><button class="aj-logo" data-a="menuLogo" aria-label="Alterar logo da empresa" title="Alterar logo">
         ${e.logo_url?`<img src="${e.logo_url}" alt="">`:`<span class="avatar g" style="background:${this.cor(e.cnpj)};width:64px;height:64px;font-size:24px">${esc(this.iniciais(e.apelido||e.nome))}</span>`}
@@ -1084,13 +1070,6 @@ const app={
     this.folha('Ajustes','',cab+`<div class="tabs"><div class="seg" role="tablist" id="a-tabs">${Object.entries(nomes).map(([k,v])=>`<button role="tab" data-v="${k}" aria-selected="false">${v}</button>`).join('')}</div></div>
       ${Object.entries(panes).map(([k,h])=>`<div class="a-pane" role="tabpanel" data-v="${k}">${h}</div>`).join('')}`,'Concluído',()=>this.fechar(),{soOk:true});
     this.irAba(aba); this.aplicarTema(this.tema);
-    const mcfg=()=>({}); const salvarM=async(parcial,id,senha)=>{ const r=await api().salvar_envio_email(parcial,senha||null); if(!r.ok) return this.invalido('f'+id,r.erro);
-      this.s=r.estado; const st=$('#sheet-status'); if(st){ st.textContent='Salvo'; setTimeout(()=>{ if($('#sheet-status')) $('#sheet-status').textContent=''; },1800); } };
-    this.segs(async v=>{ await salvarM({provedor:v},'m-prov'); this.ajustes('email'); },['m-prov']);
-    [['m-usuario','usuario'],['m-servidor','servidor'],['m-porta','porta'],['m-nome','nome_remetente'],['m-resp','responder_para'],['m-cc','cc_padrao'],['m-assunto','assunto'],['m-msg','mensagem']]
-      .forEach(([id,k])=>$('#'+id)?.addEventListener('change',()=>salvarM({[k]:$('#'+id).value.trim()},id.replace('m-','m-'))));
-    $('#m-senha')?.addEventListener('change',()=>{ const v=$('#m-senha').value; if(v) salvarM({},'m-senha',v).then(()=>{ $('#m-senha').value=''; $('#m-senha').placeholder='Guardada · digite para trocar'; }); });
-    $('#m-auto')?.addEventListener('click',()=>setTimeout(()=>salvarM({auto:swOn('m-auto')},'m-auto'),0));
     $$('#a-tabs button').forEach(b=>b.onclick=()=>this.irAba(b.dataset.v));
     this.segs(v=>{ if(v==='producao'&&this.s.empresa.ambiente!=='producao') this.ligarProducaoAgora();
       else if(v==='teste'&&this.s.empresa.ambiente!=='teste') this.salvarCampo({ambiente:'teste'},'a-amb'); },['a-amb']);
@@ -1115,7 +1094,7 @@ const app={
     if(!dig(s.cod_nacional)) return `<div class="pk-passo">1 de 2 · Serviço</div>
       <label class="lupa"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><input id="${p}-q" placeholder="O que você faz? Ex.: lavanderia, limpeza, 14.10" aria-label="Buscar serviço" autocomplete="off"></label>
       <div class="group pk-res" id="${p}-res" hidden></div>
-      <p class="hint" id="${p}-dica">Busca na lista oficial de serviços da NFS-e Nacional. Pode escrever palavras ou o número do item.</p>`;
+      <p class="hint" id="${p}-dica"></p>`;
     return `<div class="pk-passo">2 de 2 · Código NBS</div>
       <div class="group" style="margin-bottom:12px"><div class="row"><div class="main"><div class="t num">${fmtCod(s.cod_nacional)}</div><div class="s" style="white-space:normal">${esc(s.descricao_servico||'')}</div></div><button class="link" data-a="pkTrocar" data-p="${p}">Trocar</button></div></div>
       <label class="lupa"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><input id="${p}-qn" placeholder="Buscar outro NBS" aria-label="Buscar NBS" autocomplete="off"></label>
@@ -1169,37 +1148,6 @@ const app={
   async escolherLogo(){ const f=await lerArquivo('.png,.jpg,.jpeg'); if(!f) return; const r=await api().definir_logo(f.b64); if(!r.ok) return this.toast(r.erro);
     this.s=r.estado; this.cabecalho(); this.ajustes('empresa'); },
   async removerLogo(){ const r=await api().definir_logo(''); if(r.ok){ this.s=r.estado; this.cabecalho(); this.ajustes('empresa'); } },
-  async testarEmail(){ const v=$('#m-teste-r'); v.innerHTML='<span class="spin" style="display:inline-block;vertical-align:middle"></span>';
-    const r=await api().testar_envio_email(); if(!$('#m-teste-r')) return; v.textContent=r.ok?'Conectado':''; v.style.color=r.ok?'var(--green)':''; if(!r.ok) this.toast(r.erro); },
-  async emailFolha(x){
-    const r=await api().dados_envio(x.chave); if(!r.ok) return this.toast(r.erro);
-    if(!r.configurado) return this.confirmar('Enviar pelo NotF?','Para mandar com o PDF e o XML anexados, ligue a sua conta de e-mail em Ajustes › E-mail (leva 2 minutos). Ou abra no seu programa de e-mail e anexe o PDF à mão.',
-      'Configurar',false,()=>this.ajustes('email'),()=>this.enviarNota(x,'email'),'Abrir no meu e-mail');
-    this.folha('Enviar nota por e-mail',`Nº ${esc(x.numero)} · ${esc(x.unidade||x.nome)} · PDF e XML anexados`,`
-      <div class="group">
-        <div class="field"><span class="lbl">Para</span><div class="val">${esc(r.para_nome)}</div></div>
-        <div class="field" id="fe-para"><label for="e-para">E-mail</label><input id="e-para" value="${esc(r.para)}" placeholder="cliente@empresa.com.br"></div>
-        <div class="field" id="fe-cc"><label for="e-cc">Cc</label><input id="e-cc" value="${esc(r.cc)}" placeholder="Opcional · separe por vírgula"></div>
-      </div>
-      <details><summary>Mais opções</summary><div class="group">
-        <div class="field"><label for="e-nome">Nome do remetente</label><input id="e-nome" value="${esc(r.nome_remetente)}"></div>
-        <div class="field" id="fe-resp"><label for="e-resp">E-mail para resposta</label><input id="e-resp" value="${esc(r.responder_para)}" placeholder="Opcional"></div>
-      </div></details>
-      <div class="group" style="margin-top:12px">
-        <div class="field col"><label for="e-assunto">Assunto</label><input id="e-assunto" value="${esc(r.assunto)}"></div>
-        <div class="field col"><label for="e-msg">Mensagem</label><textarea id="e-msg" rows="8">${esc(r.mensagem)}</textarea></div>
-      </div>
-      <div class="group" style="margin-top:12px"><div class="field"><span class="lbl" id="e-lembrar-l">Guardar estes e-mails no cliente</span><span class="spacer"></span>${sw('e-lembrar',true)}</div></div>
-      ${r.enviado_em?`<div class="banner info" style="margin-top:12px"><span class="spacer">Enviada em ${esc(r.enviado_em)} para ${esc(r.enviado_para)}</span></div>`:''}`,
-      r.enviado_em?'Reenviar':'Enviar',async()=>{
-        const c={para:$('#e-para').value,cc:$('#e-cc').value,assunto:$('#e-assunto').value,mensagem:$('#e-msg').value,nome_remetente:$('#e-nome').value,responder_para:$('#e-resp').value,lembrar:swOn('e-lembrar')};
-        if(!c.para.trim()) return this.invalido('fe-para','Informe o e-mail do cliente.');
-        const b=$('#sheet .btn.primary'); if(b){ b.disabled=true; b.textContent='Enviando…'; }
-        const res=await this.comSenha(sn=>api().enviar_email(x.chave,c,sn)); if(b){ b.disabled=false; b.textContent='Enviar'; }
-        if(!res) return; if(!res.ok) return this.toast(res.erro);
-        this.s=res.estado; this.fechar(); this._clis=null; this.carregarClientes(); this.renderHistorico(); this.toast(`Enviada para ${res.destinos.join(', ')}`); });
-    $('#e-para').focus();
-  },
   async salvarCampo(parcial,id,senha){
     const st=$('#sheet-status'); if(st) st.textContent='Salvando…';
     const r=await api().salvar_empresa({cnpj:this.s.empresa.cnpj,...parcial},false,senha||null);
@@ -1355,25 +1303,31 @@ const app={
   },
   confirmar(titulo,texto,ok,destrutivo,acao,onCancel,cancelar){
     this.folha2(titulo,texto,'',ok,()=>{ this.fechar2(); acao(); },{destrutivo,onCancel,...(cancelar?{cancelar}:{})});
-    $('#sheet2-ok').focus();
+    if(!destrutivo) $('#sheet2-ok').focus();
   },
   _montar(sel,id,titulo,sub,corpo,ok,acao,{cancelar='Cancelar',destrutivo=false,onCancel,soOk=false,extra=''}={}){
     const el=$(sel); this[`_volta_${id}`]=document.activeElement; this[`_cancel_${id}`]=onCancel;
     el.innerHTML=`<div class="sh"><h3 id="${id}-t">${esc(titulo)}</h3>${sub?`<p>${esc(sub)}</p>`:''}</div>${corpo?`<div class="sb">${corpo}</div>`:''}
       <div class="sf">${extra}<span class="s spacer" id="${id}-status" role="status" style="align-self:center"></span><button class="btn" id="${id}-c" ${soOk?'hidden':''}>${esc(cancelar)}</button><button class="btn ${destrutivo?'red':'primary'}" id="${id}-ok">${esc(ok)}</button></div>`;
     el.parentNode.classList.add('on');
-    $(`#${id}-ok`).onclick=acao; $(`#${id}-c`).onclick=()=>id==='sheet'?this.fechar(true):this.fechar2(true);
+    const okBtn=$(`#${id}-ok`);
+    okBtn.onclick=async()=>{ if(okBtn.dataset.ocupado) return; okBtn.dataset.ocupado='1'; okBtn.disabled=true;
+      try{ await acao(); } finally{ delete okBtn.dataset.ocupado; if(okBtn.isConnected) okBtn.disabled=false; } };
+    $(`#${id}-c`).onclick=()=>id==='sheet'?this.fechar(true):this.fechar2(true);
     el.onkeydown=e=>{
-      if(e.key==='Enter'&&e.target.tagName==='INPUT'){ e.preventDefault(); acao(); }
+      if(e.key==='Enter'&&e.target.tagName==='INPUT'){ e.preventDefault(); if(!e.target.closest('.lupa')) okBtn.click(); }
       if(e.key==='Tab'){ const f=[...el.querySelectorAll('button:not([disabled]):not([hidden]),input,select,textarea,summary')].filter(x=>x.offsetParent); if(!f.length) return;
         if(e.shiftKey&&document.activeElement===f[0]){ e.preventDefault(); f.at(-1).focus(); } else if(!e.shiftKey&&document.activeElement===f.at(-1)){ e.preventDefault(); f[0].focus(); } }
     };
-    setTimeout(()=>{ if(!el.contains(document.activeElement)) (el.querySelector('input,textarea,select')||$(`#${id}-ok`)).focus(); });
+    clearTimeout(this[`_saida_${id}`]); el.parentNode.classList.remove('saindo');
+    setTimeout(()=>{ if(!el.contains(document.activeElement)) (el.querySelector('input,textarea,select')||(destrutivo?$(`#${id}-c`):okBtn)).focus(); });
   },
   folha(titulo,sub,corpo,ok,acao,op){ this._montar('#sheet','sheet',titulo,sub,corpo,ok,acao,op); },
   folha2(titulo,sub,corpo,ok,acao,op){ this._montar('#sheet2','sheet2',titulo,sub,corpo,ok,acao,op); },
-  fechar(cancelado){ if(!$('#scrim').classList.contains('on')) return; $('#scrim').classList.remove('on'); if(cancelado) this._cancel_sheet?.(); this._volta_sheet?.focus?.(); },
-  fechar2(cancelado){ if(!$('#scrim2').classList.contains('on')) return; $('#scrim2').classList.remove('on'); if(cancelado) this._cancel_sheet2?.(); (this._volta_sheet2?.isConnected?this._volta_sheet2:$('#sheet-ok'))?.focus?.(); },
+  fechar(cancelado){ if(!$('#scrim').classList.contains('on')) return; this._sair('#scrim','sheet'); if(cancelado) this._cancel_sheet?.(); this._volta_sheet?.focus?.(); },
+  _sair(sel,id){ const sc=$(sel); sc.classList.add('saindo'); clearTimeout(this[`_saida_${id}`]);
+    this[`_saida_${id}`]=setTimeout(()=>sc.classList.remove('on','saindo'),matchMedia('(prefers-reduced-motion: reduce)').matches?0:150); },
+  fechar2(cancelado){ if(!$('#scrim2').classList.contains('on')) return; this._sair('#scrim2','sheet2'); if(cancelado) this._cancel_sheet2?.(); (this._volta_sheet2?.isConnected?this._volta_sheet2:$('#sheet-ok'))?.focus?.(); },
   menu(el,itens){
     this.fecharMenu(); const m=document.createElement('div'); m.className='menu'; m.setAttribute('role','menu');
     itens.filter(Boolean).forEach(it=>{ if(it==='-'){ m.appendChild(document.createElement('hr')); return; }
