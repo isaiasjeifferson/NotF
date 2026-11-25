@@ -426,8 +426,9 @@ def nome_arquivo(numero, rotulo):
     return f"NFS-e {numero} - {limpo}" if numero else f"NFS-e - {limpo}"
 
 
-def descricao(perfil, unidade, quando=None):
+def descricao(perfil, unidade, quando=None, cliente=""):
     q = quando or datetime.now()
     texto = (perfil["descricao_modelo"].replace("{mes}", MESES[q.month - 1]).replace("{ano}", str(q.year))
+             .replace("{competencia}", f"{q.month:02d}/{q.year}").replace("{cliente}", (cliente or "").strip())
              .replace("{unidade}", (unidade or "").strip()))
     return re.sub(r"(\s*-\s*)+$", "", texto).strip()

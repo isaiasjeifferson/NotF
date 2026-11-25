@@ -9,14 +9,14 @@
 :root{
   --bg:#F5F5F7;--card:#FFF;--label:#1D1D1F;--label2:#6E6E73;--label3:#AEAEB2;
   --sep:rgba(60,60,67,.13);--fill:rgba(120,120,128,.12);--fill2:rgba(120,120,128,.07);
-  --blue:#007AFF;--green:#34C759;--red:#FF3B30;--orange:#FF9500;--scrim:rgba(0,0,0,.25);
+  --blue:#EA6A0C;--accent-fill:rgba(234,106,12,.12);--green:#34C759;--red:#FF3B30;--orange:#C98800;--scrim:rgba(0,0,0,.25);
   --shadow:0 1px 2px rgba(0,0,0,.04),0 4px 16px rgba(0,0,0,.04);--r:12px;
   font-family:"Segoe UI Variable Text","Segoe UI",-apple-system,BlinkMacSystemFont,system-ui,sans-serif;
 }
 :root[data-tema=escuro]{color-scheme:dark;
   --bg:#000;--card:#1C1C1E;--label:#F5F5F7;--label2:#98989D;--label3:#636366;
   --sep:rgba(84,84,88,.55);--fill:rgba(120,120,128,.24);--fill2:rgba(120,120,128,.14);
-  --blue:#0A84FF;--green:#30D158;--red:#FF453A;--orange:#FF9F0A;--scrim:rgba(0,0,0,.6);--shadow:none}
+  --blue:#FF8A2E;--accent-fill:rgba(255,138,46,.18);--green:#30D158;--red:#FF453A;--orange:#FFC233;--scrim:rgba(0,0,0,.6);--shadow:none}
 :root[data-tema=escuro] .sheet{background:#1C1C1E}
 :root[data-tema=escuro] .sheet .group,:root[data-tema=escuro] .resultados,:root[data-tema=escuro] .menu{background:#2C2C2E}
 :root[data-tema=escuro] .seg button[aria-selected=true],:root[data-tema=escuro] .seg button[aria-checked=true]{background:#636366}
@@ -122,13 +122,20 @@ main{flex:1;overflow:auto;padding:0 32px 24px}
 .barra-sel{animation:subir var(--dur-2) var(--ease)} @keyframes subir{from{opacity:0;transform:translate(-50%,12px)}}
 .view.on,.a-pane:not([hidden]){animation:fadein var(--dur-2) var(--ease)} @keyframes fadein{from{opacity:0;transform:translateY(3px)}}
 .row.click,.field.click{transition:background var(--dur-1)}
+.sheet.larga{width:min(720px,94vw)}
+.row.srv{align-items:flex-start;padding:14px 16px} .row.srv .d{font-size:14px;line-height:1.4;margin:3px 0 4px;white-space:normal} .row.srv .s{white-space:normal;line-height:1.35}
+.acoes-srv{display:flex;gap:2px;flex:none}
+label.req::after{content:" *";color:var(--blue)}
+.menu.saindo{animation:menuout var(--dur-1) forwards;pointer-events:none} @keyframes menuout{to{opacity:0;transform:scale(.97) translateY(-3px)}}
+details[open]>*:not(summary){animation:fadein var(--dur-2) var(--ease)}
+.perfis.saindo{animation:menuout var(--dur-1) forwards;pointer-events:none} .perfis{transform-origin:top right;animation:menuin var(--dur-2) var(--ease-pop)!important}
 .aj-cab{display:flex;align-items:center;gap:14px;margin:2px 0 14px}
 .aj-logo{position:relative;width:64px;height:64px;border-radius:16px;flex:none;padding:0;overflow:hidden;background:#fff;box-shadow:inset 0 0 0 1px var(--sep)} .aj-logo img{width:100%;height:100%;object-fit:contain} .aj-logo .avatar{border-radius:16px} .aj-logo .lapis{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.45);color:#fff;opacity:0;transition:opacity .15s} .aj-logo:hover .lapis,.aj-logo:focus-visible .lapis{opacity:1}
-.pk-res{max-height:300px;overflow:auto} .pk-res .row{min-height:60px;padding:12px 16px;gap:12px} .pk-res .t{font-size:14px;margin-bottom:2px} .pk-res .s{white-space:normal;line-height:1.35}
+.pk-res{max-height:420px;overflow:auto} .pk-res .row{min-height:60px;padding:12px 16px;gap:12px} .pk-res .t{font-size:14px;margin-bottom:2px} .pk-res .s{white-space:normal;line-height:1.35}
 .lupa{display:flex;align-items:center;gap:8px;background:var(--fill);border-radius:10px;padding:0 12px;height:38px;color:var(--label2);margin-bottom:10px} .lupa input{flex:1;border:0;outline:0;background:none;text-align:left;font:inherit;color:var(--label);height:100%}
 .pk-passo{font-size:12px;font-weight:600;color:var(--label2);text-transform:uppercase;letter-spacing:.04em;margin:4px 4px 8px}
 .row.cancelada .t,.row.cancelada .s,.row.cancelada .v{color:var(--label3)} .row.cancelada .v{text-decoration:line-through} .row.cancelada{background:color-mix(in srgb,var(--label3) 8%,transparent)}
-.row .ck{width:18px;flex:none;color:var(--blue)} .badge.ind{background:color-mix(in srgb,var(--blue) 14%,transparent);color:var(--blue)}
+.row .ck{width:18px;flex:none;color:var(--blue)} .badge.ind{background:var(--accent-fill);color:var(--blue)}
 .more{width:30px;height:28px;border-radius:7px;color:var(--label2);display:grid;place-items:center;flex:none}
 .more:hover{background:var(--fill)}
 
@@ -174,13 +181,14 @@ input::-ms-reveal,input::-ms-clear{display:none}
 .aparencia .seg button{padding:3px 10px;font-size:12px}
 .hint{font-size:12px;color:var(--label2);margin:6px 16px 0;line-height:1.45}
 .hint.erro{color:var(--red)}
-.prev{font-size:13px;color:var(--label2);padding:10px 16px;border-top:1px solid var(--sep);background:var(--fill2)}
+.prev{padding:12px 16px 14px;border-top:1px solid var(--sep);background:var(--fill2)} .prev .pv-r{font-size:11px;font-weight:600;color:var(--label2);text-transform:uppercase;letter-spacing:.04em}
+.prev .pv{margin-top:6px;padding:10px 12px;background:var(--card);border-radius:8px;border:1px solid var(--sep);font-size:14px;line-height:1.4}
 .prev b{color:var(--label);font-weight:500}
 .pills{display:flex;gap:6px;padding:0 16px 10px}
 .pills button{font-size:12px;padding:3px 10px;border-radius:99px;background:var(--fill);color:var(--blue);font-weight:600}
 .switch{width:44px;height:26px;border-radius:99px;background:var(--fill);position:relative;transition:.2s;flex:none}
 .switch::after{content:"";position:absolute;top:2px;left:2px;width:22px;height:22px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:.2s}
-.switch[aria-checked=true]{background:var(--green)} .switch[aria-checked=true]::after{left:20px}
+.switch[aria-checked=true]{background:var(--blue)} .switch[aria-checked=true]::after{left:20px}
 details summary{list-style:none;color:var(--label2);font-size:13px;margin:20px 16px 6px;cursor:default}
 details summary::before{content:"›";display:inline-block;margin-right:6px;transition:.2s} details[open] summary::before{transform:rotate(90deg)}
 
@@ -218,7 +226,7 @@ details summary::before{content:"›";display:inline-block;margin-right:6px;tran
 
 .toast{position:fixed;bottom:86px;left:50%;transform:translateX(-50%) translateY(16px);opacity:0;background:rgba(30,30,30,.94);color:#fff;padding:10px 16px;border-radius:99px;font-size:13px;transition:.3s;z-index:20;max-width:80vw;display:flex;gap:12px;align-items:center;pointer-events:none}
 .toast.on{opacity:1;transform:translateX(-50%);pointer-events:auto}
-.toast button{color:#64D2FF;font-weight:600}
+.toast button{color:#FFB070;font-weight:600}
 .busca-cli{position:relative;margin:2px 0 10px}
 .busca-cli input{width:100%;border:0;outline:0;background:var(--card);box-shadow:var(--shadow);border-radius:10px;padding:10px 14px 10px 36px;font-size:14px}
 .busca-cli svg{position:absolute;left:12px;top:12px;color:var(--label3)}
@@ -232,7 +240,9 @@ details summary::before{content:"›";display:inline-block;margin-right:6px;tran
 .filtro{display:flex;justify-content:flex-end;margin-top:8px}
 .avatar{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;color:#fff;font-weight:600;font-size:13px;flex:none;letter-spacing:.02em}
 .avatar.g{width:56px;height:56px;font-size:20px}
-.perfil-btn{border-radius:50%;padding:2px}
+.perfil-btn{display:flex;align-items:center;gap:8px;border-radius:99px;padding:3px 10px 3px 3px;max-width:260px;transition:background var(--dur-1)} .perfil-btn:hover{background:var(--fill)}
+.perfil-btn .nome{font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap} .perfil-btn svg{color:var(--label2);flex:none}
+.avatar.logo{background:#fff;overflow:hidden;box-shadow:inset 0 0 0 1px var(--sep)} .avatar.logo img{width:100%;height:100%;object-fit:contain}
 .perfil-btn:hover,.perfil-btn[aria-expanded=true]{box-shadow:0 0 0 3px var(--fill)}
 .perfis{position:fixed;top:64px;right:24px;width:340px;background:var(--card);border-radius:16px;box-shadow:0 16px 48px rgba(0,0,0,.22);border:1px solid var(--sep);z-index:15;padding:18px 8px 8px;animation:pop .18s}
 :root[data-tema=escuro] .perfis{background:#2C2C2E}
@@ -336,7 +346,7 @@ const nomeSrv=x=>{const d=(x.nome||x.descricao_servico||'').replace(/\.$/,''); r
 const fmtNum=v=>(+v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
 const plural=(n,a,b)=>`${n} ${n===1?a:b}`;
 const MESES=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
-const aplicarModelo=(m,u)=>{const d=new Date();return m.replaceAll('{mes}',MESES[d.getMonth()]).replaceAll('{ano}',d.getFullYear()).replaceAll('{unidade}',u).replace(/(\s*-\s*)+$/,'')};
+const aplicarModelo=(m,u,c='')=>{const d=new Date();return m.replaceAll('{mes}',MESES[d.getMonth()]).replaceAll('{ano}',d.getFullYear()).replaceAll('{competencia}',String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear()).replaceAll('{cliente}',c).replaceAll('{unidade}',u).replace(/(\s*-\s*)+$/,'')};
 const lerArquivo=aceita=>new Promise(res=>{const i=$('#arquivo');i.accept=aceita;i.value='';
   i.onchange=()=>{const f=i.files[0];if(!f)return res(null);const r=new FileReader();r.onload=()=>res({nome:f.name,b64:r.result.split(',')[1]});r.readAsDataURL(f)};i.click()});
 const ICON={
@@ -346,6 +356,7 @@ const ICON={
   seta:'<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>',
   mais:'<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>',
   lapis:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 1 1 3 3L7 19l-4 1 1-4z"/></svg>',
+  estrela:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/></svg>',
   lixo:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14M10 11v6M14 11v6"/></svg>',
   relogio:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
   check:'<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg>'};
@@ -398,11 +409,10 @@ const app={
 
   cabecalho(){
     const e=this.s.empresa, p=e.ambiente==='producao';
-    $('#empresa-btn').innerHTML=`<span>${esc(e.apelido||e.nome)}</span> ${ICON.seta}`;
-    $('#empresa-btn').title=e.nome;
-    const a=$('#amb'); a.textContent=p?'Produção':'Teste'; a.className='badge '+(p?'prod':'teste');
-    a.title=p?'As notas têm validade fiscal':'As notas não têm validade fiscal';
-    $('#perfil-btn').innerHTML=e.logo_url?`<span class="avatar" style="background:#fff;overflow:hidden;box-shadow:inset 0 0 0 1px var(--sep)"><img src="${e.logo_url}" alt="" style="width:100%;height:100%;object-fit:contain"></span>`:this.av({cnpj:e.cnpj,nome:e.apelido||e.nome}); $('#perfil-btn').setAttribute('aria-label',`Empresa: ${e.apelido||e.nome}. Trocar de empresa`);
+    $('#empresa-btn').hidden=true;
+    const a=$('#amb'); a.hidden=p; a.textContent='Modo teste · notas sem validade fiscal'; a.className='badge teste';
+    $('#perfil-btn').innerHTML=(e.logo_url?`<span class="avatar logo"><img src="${e.logo_url}" alt=""></span>`:this.av({cnpj:e.cnpj,nome:e.apelido||e.nome}))
+      +`<span class="nome">${esc(e.apelido||e.nome)}</span>${ICON.seta}`; $('#perfil-btn').setAttribute('aria-label',`Empresa: ${e.apelido||e.nome}. Trocar de empresa`);
   },
   avisos(){
     const e=this.s.empresa, c=this.s.certificado||{}, out=[];
@@ -438,7 +448,7 @@ const app={
         <p class="lead">Ele identifica a empresa e autoriza a emissão na Receita. Use o certificado digital A1 (e-CNPJ), arquivo .pfx ou .p12, emitido por uma certificadora ICP-Brasil.</p>
         <button class="drop ${c.arq?'on':''}" data-a="escolherPfx"><b>${c.arq?esc(c.arq.nome):'Escolher arquivo do certificado'}</b>${c.arq?'Clique para trocar':'.pfx ou .p12'}</button>
         <div class="group" style="margin-top:14px">
-          <div class="field" id="fc-senha"><label for="c-senha">Senha</label><input id="c-senha" type="password" placeholder="Senha do certificado" autocomplete="off"><button class="olho" data-a="olho" data-alvo="c-senha" aria-label="Mostrar senha">Mostrar</button></div>
+          <div class="field" id="fc-senha"><label for="c-senha">Senha</label><input id="c-senha" type="password"  autocomplete="off"><button class="olho" data-a="olho" data-alvo="c-senha" aria-label="Mostrar senha">Mostrar</button></div>
           <div class="field"><span class="lbl" id="c-guardar-l">Guardar a senha</span><span class="spacer"></span>${sw('c-guardar',c.guardar)}</div>
         </div>
         <p class="hint">Desligado, o NotF pede a senha a cada envio. Indicado para computadores compartilhados.</p>
@@ -448,16 +458,16 @@ const app={
         <div class="group" style="margin-bottom:6px"><div class="check">${ICON.ok}<div><b>${esc(c.cert.nome)}</b><div class="s">CNPJ ${fmtDoc(c.cert.cnpj)} · certificado válido até ${esc(c.cert.validade)}</div></div></div></div>
         <p class="lead" style="margin-top:12px">Preenchidos pelo CNPJ. Confira e ajuste se precisar.</p>
         <div class="group">
-          <div class="field" id="fe-nome"><label for="e-nome">Razão social</label><input id="e-nome" value="${esc(c.empresa.nome)}"></div>
-          <div class="field"><label for="e-apelido">Nome curto</label><input id="e-apelido" value="${esc(c.empresa.apelido||'')}" placeholder="Opcional · aparece no topo"></div>
-          <div class="field"><label for="e-mun">Município</label><input id="e-mun" value="${esc(c.empresa.municipio||'')}" placeholder="Cidade/UF"></div>
-          <div class="field" id="fe-ibge"><label for="e-ibge">Código do município</label><input id="e-ibge" class="num" value="${esc(c.empresa.municipio_ibge||'')}" placeholder="7 números" maxlength="7"></div>
+          <div class="field" id="fe-nome"><label class="req" for="e-nome">Razão social</label><input id="e-nome" value="${esc(c.empresa.nome)}"></div>
+          <div class="field"><label for="e-apelido">Nome curto</label><input id="e-apelido" value="${esc(c.empresa.apelido||'')}" ></div>
+          <div class="field"><label class="req" for="e-mun">Município</label><input id="e-mun" value="${esc(c.empresa.municipio||'')}" placeholder="Ex.: São Paulo/SP"></div>
+          <div class="field" id="fe-ibge"><label class="req" for="e-ibge">Código do município</label><input id="e-ibge" class="num" value="${esc(c.empresa.municipio_ibge||'')}"  maxlength="7"></div>
         </div>
         <p class="hint">${c.empresa.municipio_ibge?'Código do IBGE, preenchido pelo CNPJ.':'Não veio pelo CNPJ. Busque “código IBGE '+esc(c.empresa.municipio||'sua cidade')+'” na internet (são 7 números).'}</p>
         <div class="gt">Regime tributário</div>
         <div class="group">
           <div class="field"><span class="lbl">Regime</span><span class="spacer"></span>${segBtns('e-reg',[[3,'Simples Nacional'],[2,'MEI'],[1,'Outro']],c.empresa.op_simples??3)}</div>
-          <div class="field" id="fe-aliq"><label for="e-aliq">Alíquota do Simples</label><input id="e-aliq" class="num" placeholder="0,00" value="${c.empresa.aliquota_simples?fmtNum(c.empresa.aliquota_simples):''}"><span class="unit">%</span></div>
+          <div class="field" id="fe-aliq"><label class="req" for="e-aliq">Alíquota do Simples</label><input id="e-aliq" class="num" placeholder="0,00" value="${c.empresa.aliquota_simples?fmtNum(c.empresa.aliquota_simples):''}"><span class="unit">%</span></div>
         </div>
         <p class="hint" id="e-aliq-h">Percentual efetivo da sua faixa no Simples. Está no extrato do PGDAS ou com a contabilidade.</p>
         <div class="setup-nav">${voltar}<span class="spacer"></span><button class="btn primary big" data-a="salvarPasso2">Continuar</button></div>`,
@@ -467,7 +477,7 @@ const app={
         <div class="gt">Descrição das notas</div>
         <div class="group">
           <div class="field col" id="fs-modelo"><label for="s-modelo">Modelo</label><input id="s-modelo" value="${esc(c.modelo||'Prestação de serviço - {mes} de {ano} - {unidade}')}"></div>
-          <div class="pills"><button data-a="inserir" data-t="{mes}" data-alvo="s-modelo">+ Mês</button><button data-a="inserir" data-t="{ano}" data-alvo="s-modelo">+ Ano</button><button data-a="inserir" data-t="{unidade}" data-alvo="s-modelo">+ Unidade</button></div>
+          <div class="pills"><button data-a="inserir" data-t="{mes}" data-alvo="s-modelo">+ Mês</button><button data-a="inserir" data-t="{ano}" data-alvo="s-modelo">+ Ano</button><button data-a="inserir" data-t="{competencia}" data-alvo="s-modelo">+ Competência</button><button data-a="inserir" data-t="{cliente}" data-alvo="s-modelo">+ Cliente</button><button data-a="inserir" data-t="{unidade}" data-alvo="s-modelo">+ Unidade</button></div>
           <div class="prev" id="s-modelo-prev"></div>
         </div>
         <div class="setup-nav">${voltar}<span class="spacer"></span><button class="btn primary big" data-a="salvarPasso3">Continuar</button></div>`,
@@ -700,10 +710,10 @@ const app={
     this.folha(novo?'Nova nota':'Editar nota','',`${busca?`<label class="lupa"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><input id="f-qc" placeholder="Buscar cliente salvo por nome, unidade ou CNPJ" aria-label="Buscar cliente salvo" autocomplete="off"></label>
       <div class="group pk-res" id="f-qc-res" hidden style="margin-bottom:12px"></div>`:''}
       <div class="group">
-        <div class="field" id="ff-doc"><label for="f-doc">CNPJ ou CPF</label><input id="f-doc" class="num" value="${esc(fmtDoc(x.cnpj))}" placeholder="Só números"></div>
-        <div class="field" id="ff-nome"><label for="f-nome">Cliente</label><input id="f-nome" value="${esc(x.nome)}" placeholder="Preenchido pelo CNPJ"></div>
-        <div class="field"><label for="f-uni">Unidade</label><input id="f-uni" value="${esc(x.unidade)}" placeholder="Opcional"></div>
-        <div class="field" id="ff-val"><label for="f-val">Valor</label><input id="f-val" class="num" value="${x.valor?fmtNum(x.valor):''}" placeholder="R$ 0,00"></div>
+        <div class="field" id="ff-doc"><label class="req" for="f-doc">CNPJ ou CPF</label><input id="f-doc" class="num" value="${esc(fmtDoc(x.cnpj))}" ></div>
+        <div class="field" id="ff-nome"><label class="req" for="f-nome">Cliente</label><input id="f-nome" value="${esc(x.nome)}" ></div>
+        <div class="field"><label for="f-uni">Unidade</label><input id="f-uni" value="${esc(x.unidade)}"></div>
+        <div class="field" id="ff-val"><label class="req" for="f-val">Valor</label><input id="f-val" class="num" value="${x.valor?fmtNum(x.valor):''}" placeholder="0,00"></div>
       </div>${pre&&x.valor?'<p class="hint">Preenchido com o último valor. Altere se mudou.</p>':''}
       ${(this.s.empresa.servicos||[]).length>1?`<div class="gt">Serviço</div><div class="group"><div class="field"><select id="f-srv" aria-label="Serviço" style="flex:1">
         <option value="">Automático</option>${this.s.empresa.servicos.map(v=>{const c=v.cod_nacional+'|'+(v.nbs||'');return `<option value="${c}" ${x.servico===c?'selected':''}>${fmtCod(v.cod_nacional)} · ${esc(nomeSrv(v))}</option>`}).join('')}</select></div></div>`:''}
@@ -727,7 +737,7 @@ const app={
     const dadosCli=d=>{ const det=$('#f-cli-det'); if(!det) return; det.hidden=![11,14].includes(d.length); if(!det.hidden&&det.dataset.doc!==d){ det.dataset.doc=d; this.carregarDadosCliente(d,'#f-cli'); } };
     this._dadosCliNota=dadosCli;
     doc.onblur=async()=>{ const d=dig(doc.value); doc.value=fmtDoc(d);
-      if(d.length===14&&!$('#f-nome').value){ $('#f-nome').placeholder='Buscando…'; $('#f-nome').value=await api().buscar_nome(d); $('#f-nome').placeholder='Preenchido pelo CNPJ'; }
+      if(d.length===14&&!$('#f-nome').value){ $('#f-nome').placeholder='Buscando…'; $('#f-nome').value=await api().buscar_nome(d); $('#f-nome').placeholder=''; }
       if($('#f-nome').value&&[11,14].includes(d.length)&&!(await api().cliente(d)).cliente.nome) await api().salvar_dados_cliente(d,{nome:$('#f-nome').value});
       dadosCli(d); };
     if([11,14].includes(dig(x.cnpj).length)) dadosCli(dig(x.cnpj));
@@ -823,7 +833,7 @@ const app={
           <button class="more" data-a="menuNotaCli" data-k="${k}" aria-haspopup="menu" aria-label="Ações da nota ${esc(x.numero)}">${ICON.mais}</button></div>`).join('')||'<p class="hint" style="padding:16px">Nenhuma nota emitida em produção para este cliente.</p>'}</div>
       </div>
       <div ${aba==='dados'?'':'hidden'}>
-        <div class="gt"><span></span><button class="link" data-a="completarCliente" data-c="${esc(cnpj)}">Preencher pelo CNPJ</button></div>
+        <div style="height:14px"></div>
         <div class="group" id="cli-dados"><div class="field"><span class="s">Carregando…</span></div></div>
       </div>`;
     this.carregarDadosCliente(cnpj);
@@ -833,17 +843,17 @@ const app={
     const alvo=i>=0?i:(this._h.push(x),this._h.length-1); el.dataset.i=alvo; this.menuNota(_,el); },
   async carregarDadosCliente(cnpj,box='#cli-dados'){
     const r=await api().cliente(cnpj); if(!r.ok||!$(box)) return; const c=r.cliente, P=box==='#cli-dados'?'c':'n';
-    const F=[['nome','Nome / Razão social','Obrigatório'],['email','E-mail','Opcional'],['email_cc','Cópia (CC)','Outros e-mails, separados por vírgula'],['fone','Telefone','Opcional · com DDD'],['im','Inscrição Municipal','Opcional'],
-      ['cep','CEP','Digite e o endereço vem sozinho'],['logradouro','Endereço','Preenchido pelo CEP'],['numero','Número','Ex.: 530'],['complemento','Complemento','Opcional'],
-      ['bairro','Bairro','Preenchido pelo CEP'],['municipio','Cidade','Preenchido pelo CEP'],['uf','Estado','Preenchido pelo CEP']].filter(f=>P==='c'||f[0]!=='nome');
-    $(box).innerHTML=F.map(([k,r,ph])=>`<div class="field" id="f${P}-${k}"><label for="${P}-${k}">${r}</label><input id="${P}-${k}" data-k="${k}" value="${esc(c[k]||'')}" placeholder="${ph}" ${k==='uf'?'maxlength="2" style="text-transform:uppercase"':''}></div>`).join('')
-      +`<div class="field col" id="f${P}-info"><label for="${P}-info">Informações complementares</label><input id="${P}-info" data-k="info" value="${esc(c.info||'')}" placeholder="Ex.: Contrato nº 123/2026 · Empenho 456"></div>`;
+    const F=[['nome','Nome / Razão social',''],['email','E-mail',''],['fone','Telefone','(00) 00000-0000'],['im','Inscrição Municipal',''],
+      ['cep','CEP','00000-000'],['logradouro','Endereço',''],['numero','Número',''],['complemento','Complemento',''],
+      ['bairro','Bairro',''],['municipio','Cidade',''],['uf','Estado','']].filter(f=>P==='c'||f[0]!=='nome');
+    $(box).innerHTML=F.map(([k,r,ph])=>`<div class="field" id="f${P}-${k}"><label for="${P}-${k}" class="${k==='nome'?'req':''}">${r}</label><input id="${P}-${k}" data-k="${k}" value="${esc(c[k]||'')}" placeholder="${ph}" ${k==='uf'?'maxlength="2" style="text-transform:uppercase"':''}></div>`).join('')
+      +`<div class="field col" id="f${P}-info"><label for="${P}-info">Informações complementares</label><input id="${P}-info" data-k="info" value="${esc(c.info||'')}" ></div>`;
     const cepIn=$(`#${P}-cep`); let ultimoCep=dig(cepIn.value);
     const buscarCep=async()=>{ const d=dig(cepIn.value); if(d.length!==8||d===ultimoCep) return; ultimoCep=d;
       const alvos=['logradouro','bairro','municipio','uf'].map(k=>$(`#${P}-${k}`));
       alvos.forEach(x=>{ x.closest('.field').classList.add('carregando'); x.value=''; x.placeholder='Buscando…'; });
       const r=await api().consultar_cep(d);
-      alvos.forEach(x=>{ x.closest('.field').classList.remove('carregando'); x.placeholder='Preenchido pelo CEP'; });
+      alvos.forEach(x=>{ x.closest('.field').classList.remove('carregando'); x.placeholder=''; });
       if(!r.ok){ this.invalido(`f${P}-cep`,r.erro); return; }
       const campos={cep:d,...r.dados}; for(const [k,v] of Object.entries(r.dados)){ const x=$(`#${P}-${k}`); if(x) x.value=v||''; }
       cepIn.value=d.replace(/(\d{5})(\d{3})/,'$1-$2');
@@ -897,7 +907,7 @@ const app={
     this._h=h; const meses=new Map(); this._meses=meses;
     h.forEach((x,i)=>{ const [,m,a]=x.data.split(' ')[0].split('/'); const k=`${MESES[+m-1]} de ${a}`; if(!meses.has(k)) meses.set(k,[]); meses.get(k).push(i); });
     $('#hist').innerHTML=filtro+[...meses].map(([m,idx])=>`
-      <div class="gt"><span>${this.selModo?`<button class="link" data-a="selMes" data-m="${esc(m)}">${idx.every(i=>this.selH.has(h[i].chave))?'Desmarcar':'Marcar'} ${esc(m)}</button>`:esc(m)}</span><span><span class="num">Total ${brl(idx.map(i=>h[i]).filter(x=>x.situacao==='emitida'&&x.ambiente==='producao').reduce((a,x)=>a+x.valor,0))}</span> · <button class="link" data-a="salvarPdfs" data-m="${esc(m)}">Exportar PDFs</button></span></div>
+      <div class="gt"><span>${this.selModo?`<button class="link" data-a="selMes" data-m="${esc(m)}">${idx.every(i=>this.selH.has(h[i].chave))?'Desmarcar':'Marcar'} ${esc(m)}</button>`:esc(m)}</span><span></span></div>
       <div class="group">${idx.map(i=>{const x=h[i];return `<div class="row ${x.situacao==='cancelada'?'cancelada':''}">${this.selModo&&x.chave?`<button class="check-n" role="checkbox" aria-checked="${this.selH.has(x.chave)}" data-a="selNota" data-k="${esc(x.chave)}" aria-label="Selecionar nota ${esc(x.numero)}">${this.selH.has(x.chave)?ICON.check:''}</button>`:''}
         <div class="main"><div class="t">${esc(x.unidade||x.nome)}${x.ambiente==='teste'?'<span class="badge teste">Teste</span>':''}${x.situacao==='cancelada'?'<span class="badge cancel">Cancelada</span>':''}${x.situacao==='pendente'?'<span class="badge teste">A confirmar</span>':''}</div>
         <div class="s">${x.numero?'Nº '+esc(x.numero)+' · ':''}${esc(x.data)} · ${esc(x.nome)}</div></div>
@@ -918,8 +928,8 @@ const app={
   selMes(_,el){ const idx=this._meses.get(el.dataset.m)||[], ks=idx.map(i=>this._h[i].chave).filter(Boolean), todas=ks.every(k=>this.selH.has(k));
     ks.forEach(k=>todas?this.selH.delete(k):this.selH.add(k)); this.renderHistorico(); this.barraSel(); },
   barraSel(){ let b=$('#barra-sel'); if(!b){ b=document.createElement('div'); b.id='barra-sel'; b.className='barra-sel'; document.body.appendChild(b); }
-    const n=this.selH.size; b.hidden=!this.selModo;
-    b.innerHTML=`<span class="n">${n?plural(n,'nota selecionada','notas selecionadas'):'Selecione as notas'}</span><span class="spacer"></span>
+    const n=this.selH.size, soma=(this.s.historico||[]).filter(x=>this.selH.has(x.chave)&&x.situacao==='emitida').reduce((a,x)=>a+x.valor,0); b.hidden=!this.selModo;
+    b.innerHTML=`<span class="n">${n?`${plural(n,'nota','notas')} · <span class="num">${brl(soma)}</span>`:'Selecione as notas'}</span><span class="spacer"></span>
       <button class="btn" data-a="selAcao" data-v="pdf" ${n?'':'disabled'}>Exportar PDFs</button><button class="btn" data-a="selAcao" data-v="email" ${n?'':'disabled'}>Enviar por e-mail</button>
       <button class="btn" data-a="selAcao" data-v="imprimir" ${n?'':'disabled'}>Imprimir</button><button class="btn primary" data-a="modoSel">Concluir</button>`; },
   async selAcao(_,el){ const ks=[...this.selH], v=el.dataset.v;
@@ -999,20 +1009,20 @@ const app={
     const certTxt=c.erro?esc(c.erro):`Válido até ${esc(c.validade||'—')}`;
     const panes={
       empresa:`<div class="group">
-          <div class="field" id="fa-nome"><label for="a-nome">Razão social</label><input id="a-nome" value="${esc(e.nome)}"></div>
-          <div class="field"><label for="a-apelido">Nome curto</label><input id="a-apelido" value="${esc(e.apelido||'')}" placeholder="Opcional"></div>
+          <div class="field" id="fa-nome"><label class="req" for="a-nome">Razão social</label><input id="a-nome" value="${esc(e.nome)}"></div>
+          <div class="field"><label for="a-apelido">Nome curto</label><input id="a-apelido" value="${esc(e.apelido||'')}"></div>
           <div class="field"><span class="lbl">CNPJ</span><div class="val num">${fmtDoc(e.cnpj)}</div></div>
           <div class="field"><label for="a-mun">Município</label><input id="a-mun" value="${esc(e.municipio)}"></div>
-          <div class="field" id="fa-ibge"><label for="a-ibge">Código do município</label><input id="a-ibge" class="num" maxlength="7" value="${esc(e.municipio_ibge)}"></div>
+          <div class="field" id="fa-ibge"><label class="req" for="a-ibge">Código do município</label><input id="a-ibge" class="num" maxlength="7" value="${esc(e.municipio_ibge)}"></div>
           <div class="field"><label for="a-reg">Regime</label><select id="a-reg">${[[3,'Simples Nacional'],[2,'MEI'],[1,'Outro']].map(([v,t])=>`<option value="${v}" ${e.op_simples==v?'selected':''}>${t}</option>`).join('')}</select></div>
-          <div class="field" id="fa-aliq"><label for="a-aliq">Alíquota do Simples</label><input id="a-aliq" class="num" value="${fmtNum(e.aliquota_simples)}"><span class="unit">%</span></div>
+          <div class="field" id="fa-aliq"><label class="req" for="a-aliq">Alíquota do Simples</label><input id="a-aliq" class="num" value="${fmtNum(e.aliquota_simples)}"><span class="unit">%</span></div>
         </div>
         <div class="gt">Dados que vão em todas as notas</div>
         <div class="group">
-          <div class="field" id="fa-im"><label for="a-im">Inscrição Municipal</label><input id="a-im" class="num" value="${esc(e.im||'')}" placeholder="Ex.: 6.414.179-9"></div>
-          <div class="field" id="fa-fone"><label for="a-fone">Telefone</label><input id="a-fone" class="num" value="${esc(e.fone||'')}" placeholder="Com DDD"></div>
-          <div class="field" id="fa-email"><label for="a-email">E-mail</label><input id="a-email" value="${esc(e.email||'')}" placeholder="Opcional"></div>
-          <div class="field"><label for="a-ie">Inscrição Estadual</label><input id="a-ie" class="num" value="${esc(e.ie||'')}" placeholder="Opcional"></div>
+          <div class="field" id="fa-im"><label for="a-im">Inscrição Municipal</label><input id="a-im" class="num" value="${esc(e.im||'')}" ></div>
+          <div class="field" id="fa-fone"><label for="a-fone">Telefone</label><input id="a-fone" class="num" value="${esc(e.fone||'')}" placeholder="(00) 00000-0000"></div>
+          <div class="field" id="fa-email"><label for="a-email">E-mail</label><input id="a-email" value="${esc(e.email||'')}"></div>
+          <div class="field"><label for="a-ie">Inscrição Estadual</label><input id="a-ie" class="num" value="${esc(e.ie||'')}"></div>
         </div>
         <p class="hint">${e.im&&e.im_na_nota===false?'<b>A Inscrição Municipal não está indo nas notas:</b> a Receita recusou porque ela não está no cadastro nacional da NFS-e. Ela volta a ir quando você corrigir o número. ':''}A Inscrição Estadual fica guardada, mas não aparece na nota de serviço: ela só existe na nota de produto.</p>
         <div class="gt">Certificado digital</div>
@@ -1027,15 +1037,18 @@ const app={
         </div>
         <p class="hint">${e.ambiente==='producao'?'Na produção, as notas têm validade fiscal.':e.teste_ok?'Teste concluído. Na produção, as notas têm validade fiscal.':'Emita uma nota de teste para liberar a produção. <button class="link" data-a="producaoSemTeste">O ambiente de teste não funciona?</button>'}</p>
         <div class="gt">Serviços</div>
-        <div class="group">${(e.servicos||[s]).map((x,k)=>`<button class="row click" data-a="menuServico" data-k="${k}"><div class="main"><div class="t"><span class="num">${fmtCod(x.cod_nacional)}</span> · ${esc(nomeSrv(x))} ${k===0?'<span class="badge">Padrão</span>':''}</div>
-            <div class="s">${x.nbs?`NBS ${fmtNbs(x.nbs)}${x.descricao_nbs?' · '+esc(x.descricao_nbs):''}`:'Sem NBS'}${x.iss_retido?' · ISS retido':''}</div></div></button>`).join('')}
-          <button class="field click" data-a="novoServico"><span class="lbl" style="color:var(--blue)">Adicionar serviço</span></button>
-        </div>
-        <p class="hint">O padrão vai nas notas novas. Cada cliente lembra o último serviço usado com ele, e dá para trocar em cada nota.</p>
+        <div class="group">${(e.servicos||[s]).map((x,k)=>`<div class="row srv"><div class="main">
+            <div class="t"><span class="num">${fmtCod(x.cod_nacional)}</span>${k===0?' <span class="badge ind">Padrão</span>':''}</div>
+            <div class="d">${esc(x.descricao_servico||x.nome||'')}</div>
+            <div class="s">${x.nbs?`NBS ${fmtNbs(x.nbs)}${x.descricao_nbs?' · '+esc(x.descricao_nbs):''}`:'Sem NBS'}${x.iss_retido?' · ISS retido':''}</div></div>
+            <div class="acoes-srv">${k?`<button class="acao" data-a="padraoServico" data-k="${k}" title="Tornar padrão" aria-label="Tornar padrão">${ICON.estrela}</button>`:''}
+            <button class="acao" data-a="editarServico" data-k="${k}" title="Editar" aria-label="Editar serviço">${ICON.lapis}</button>
+            ${(e.servicos||[]).length>1?`<button class="acao red" data-a="removerServico" data-k="${k}" title="Remover" aria-label="Remover serviço">${ICON.lixo}</button>`:''}</div></div>`).join('')}</div>
+        <div class="group" style="margin-top:10px"><button class="field click" data-a="novoServico"><span class="lbl" style="color:var(--blue)">+ Adicionar serviço</span></button></div>
         <div class="gt">Descrição das notas</div>
         <div class="group">
           <div class="field col" id="fa-modelo"><label for="a-modelo">Modelo</label><input id="a-modelo" value="${esc(e.descricao_modelo)}"></div>
-          <div class="pills"><button data-a="inserir" data-t="{mes}" data-alvo="a-modelo">+ Mês</button><button data-a="inserir" data-t="{ano}" data-alvo="a-modelo">+ Ano</button><button data-a="inserir" data-t="{unidade}" data-alvo="a-modelo">+ Unidade</button></div>
+          <div class="pills"><button data-a="inserir" data-t="{mes}" data-alvo="a-modelo">+ Mês</button><button data-a="inserir" data-t="{ano}" data-alvo="a-modelo">+ Ano</button><button data-a="inserir" data-t="{competencia}" data-alvo="a-modelo">+ Competência</button><button data-a="inserir" data-t="{cliente}" data-alvo="a-modelo">+ Cliente</button><button data-a="inserir" data-t="{unidade}" data-alvo="a-modelo">+ Unidade</button></div>
           <div class="prev" id="a-modelo-prev"></div>
         </div>`,
       geral:`<div class="group">
@@ -1046,11 +1059,12 @@ const app={
           <button class="field click" data-a="pasta" data-alvo="a-pcomp"><span class="lbl">Pasta compartilhada</span><div class="val" id="a-pcomp" data-valor="${esc(e.pasta_compartilhada||'')}">${esc(e.pasta_compartilhada||'Não usar')}</div></button>
         </div>
         <p class="hint">Com uma pasta na rede, OneDrive ou Google Drive, os computadores da empresa dividem histórico, clientes e numeração. ${e.pasta_compartilhada?'<button class="link" data-a="desligarComp">Parar de usar</button>':''}</p>
-        <div class="gt">Empresas</div>
-        <div class="group">
-          <button class="field click" data-a="novaEmpresa"><span class="lbl" style="color:var(--blue)">Adicionar empresa</span></button>
-          <button class="field click" data-a="removerEmpresa"><span class="lbl" style="color:var(--red)">Remover esta empresa</span></button>
-        </div>
+        <div class="gt">Empresas neste computador</div>
+        <div class="group">${this.s.empresas.map(x=>`<div class="row"><span class="avatar" style="background:${this.cor(x.cnpj)}">${esc(this.iniciais(x.nome))}</span>
+            <div class="main"><div class="t">${esc(x.nome)}${x.cnpj===e.cnpj?' <span class="badge ind">Em uso</span>':''}</div><div class="s">${fmtDoc(x.cnpj)}${x.ambiente==='teste'?' · modo teste':''}</div></div>
+            ${x.cnpj===e.cnpj?'':`<button class="btn" data-a="usarEmpresa" data-c="${esc(x.cnpj)}">Usar</button>`}
+            <button class="acao red" data-a="removerEmpresaX" data-c="${esc(x.cnpj)}" title="Remover deste computador" aria-label="Remover ${esc(x.nome)}">${ICON.lixo}</button></div>`).join('')}</div>
+        <div class="group" style="margin-top:10px"><button class="field click" data-a="novaEmpresa"><span class="lbl" style="color:var(--blue)">+ Adicionar empresa</span></button></div>
         <details><summary>Avançado</summary>
           <div class="group">${['producao','teste'].map(a=>['sefin','adn'].map(k=>`<div class="field col"><label for="u-${a}-${k}">${a==='producao'?'Produção':'Teste'} · ${k==='sefin'?'emissão':'PDF das notas'}</label><input id="u-${a}-${k}" value="${esc(u[a][k])}"></div>`).join('')).join('')}</div>
           <p class="hint">Endereços oficiais da Receita. Só mude se a Receita anunciar outros. <button class="link" data-a="restaurarUrls">Restaurar padrão</button> <button class="link" data-a="verRegistro">Ver detalhes técnicos</button></p>
@@ -1068,7 +1082,7 @@ const app={
         <span class="lapis">${ICON.lapis}</span></button>
       <div class="main"><div class="t" style="font-size:17px;white-space:normal">${esc(e.apelido||e.nome)}</div><div class="s">${fmtDoc(e.cnpj)}</div></div></div>`;
     this.folha('Ajustes','',cab+`<div class="tabs"><div class="seg" role="tablist" id="a-tabs">${Object.entries(nomes).map(([k,v])=>`<button role="tab" data-v="${k}" aria-selected="false">${v}</button>`).join('')}</div></div>
-      ${Object.entries(panes).map(([k,h])=>`<div class="a-pane" role="tabpanel" data-v="${k}">${h}</div>`).join('')}`,'Concluído',()=>this.fechar(),{soOk:true});
+      ${Object.entries(panes).map(([k,h])=>`<div class="a-pane" role="tabpanel" data-v="${k}">${h}</div>`).join('')}`,'Concluído',()=>this.fechar(),{soOk:true,larga:true});
     this.irAba(aba); this.aplicarTema(this.tema);
     $$('#a-tabs button').forEach(b=>b.onclick=()=>this.irAba(b.dataset.v));
     this.segs(v=>{ if(v==='producao'&&this.s.empresa.ambiente!=='producao') this.ligarProducaoAgora();
@@ -1101,7 +1115,7 @@ const app={
       <div class="group pk-res" id="${p}-nbs"></div>
       <p class="hint">“Indicado” = ligado a este serviço pela tabela oficial. Na dúvida, confirme com a contabilidade.</p>
       <details><summary>Mais opções</summary>
-      <div class="group"><div class="field" id="${p}-fmun"><label for="${p}-mun">Código municipal</label><input id="${p}-mun" class="num" placeholder="Opcional" value="${esc(s.cod_municipal||'')}"></div>
+      <div class="group"><div class="field" id="${p}-fmun"><label for="${p}-mun">Código municipal</label><input id="${p}-mun" class="num" value="${esc(s.cod_municipal||'')}"></div>
         <div class="field"><span class="lbl" id="${p}-ret-l">ISS retido pelo cliente</span><span class="spacer"></span>${sw(p+'-ret',s.iss_retido)}</div></div></details>`; },
   async pkLigar(p){ const s=this.pk[p], box=$('#'+p+'-pk'); if(!box) return;
     if(!s.descricao_servico&&dig(s.cod_nacional)){ const i=await api().catalogo_info(s.cod_nacional,s.nbs); if(i.ok){ s.descricao_servico=i.servico; s.descricao_nbs=i.nbs; box.innerHTML=this.pkCorpo(p); } }
@@ -1135,10 +1149,15 @@ const app={
       const v=this.pkValor('sv'); if(!v) return;
       const nova=lista.map(x=>({cod_nacional:x.cod_nacional,nbs:x.nbs,cod_municipal:x.cod_municipal,iss_retido:x.iss_retido}));
       if(novo) nova.push(v); else nova[k]=v;
-      await this.salvarServicos(nova); this.fechar2(); });
+      await this.salvarServicos(nova); this.fechar2(); },{larga:true});
     this.pkLigar('sv'); },
   async salvarServicos(lista){ await this.salvarCampo({servicos:lista},'a-tabs'); this.ajustes('notas'); },
   novoServico(){ this.servicoFolha(); },
+  _listaSrv(){ return (this.s.empresa.servicos||[]).map(x=>({cod_nacional:x.cod_nacional,nbs:x.nbs,cod_municipal:x.cod_municipal,iss_retido:x.iss_retido})); },
+  padraoServico(_,el){ const l=this._listaSrv(), [x]=l.splice(+el.dataset.k,1); l.unshift(x); this.salvarServicos(l); },
+  editarServico(_,el){ this.servicoFolha(+el.dataset.k); },
+  removerServico(_,el){ const l=this._listaSrv(), k=+el.dataset.k;
+    this.confirmar('Remover serviço?',`${fmtCod(l[k].cod_nacional)} sai da lista. As notas já emitidas não mudam.`,'Remover',true,()=>{ l.splice(k,1); this.salvarServicos(l); }); },
   menuServico(_,el){ const k=+el.dataset.k, lista=(this.s.empresa.servicos||[]).map(x=>({cod_nacional:x.cod_nacional,nbs:x.nbs,cod_municipal:x.cod_municipal,iss_retido:x.iss_retido}));
     this.menu(el,[k?['Tornar padrão',()=>{ const [x]=lista.splice(k,1); lista.unshift(x); this.salvarServicos(lista); }]:null,
       ['Editar…',()=>this.servicoFolha(k)],
@@ -1208,6 +1227,11 @@ const app={
       this.s=r.estado; this.avisos(); this.toast('Certificado atualizado'); if($('#scrim').classList.contains('on')) this.ajustes('empresa'); },'Senha do novo certificado');
   },
   novaEmpresa(){ this.fecharPerfis(); this.fechar(); this.cadastro(); },
+  async usarEmpresa(_,el){ if(this.fase==='enviando') return this.toast('Aguarde a emissão terminar.'); const r=await api().trocar_empresa(el.dataset.c); if(!r.ok) return this.toast(r.erro); this.s=r.estado; this.reset(); this.pronto(); this.ajustes('geral'); },
+  removerEmpresaX(_,el){ const x=this.s.empresas.find(y=>y.cnpj===el.dataset.c); if(!x) return;
+    this.confirmar('Remover empresa?',`${x.nome} sai deste computador, com o certificado guardado. As notas emitidas continuam na pasta.`,'Remover',true,async()=>{
+      const r=await api().remover_empresa(x.cnpj); if(!r.ok) return this.toast(r.erro);
+      this.s=r.estado; if(!this.s.empresa){ this.fechar(); this.reset(); return this.cadastro(); } this.reset(); this.pronto(); this.ajustes('geral'); }); },
   removerEmpresa(){
     const e=this.s.empresa;
     this.confirmar('Remover empresa?',`${e.apelido||e.nome} sai deste computador, com o certificado guardado. As notas emitidas continuam na pasta.`,'Remover',true,async()=>{
@@ -1242,7 +1266,7 @@ const app={
   cor(cnpj){ const c=['#007AFF','#34C759','#FF9500','#AF52DE','#FF2D55','#5AC8FA','#5856D6','#FF6B00','#00A88F','#8E8E93']; return c[[...String(cnpj)].reduce((a,d)=>a+ +d,0)%c.length]; },
   av(e,g){ return `<span class="avatar ${g?'g':''}" style="background:${this.cor(e.cnpj)}" aria-hidden="true">${esc(this.iniciais(e.nome))}</span>`; },
   painelPerfis(){
-    if($('.perfis')) return this.fecharPerfis();
+    if($('.perfis:not(.saindo)')) return this.fecharPerfis();
     const e=this.s.empresa, outras=this.s.empresas.filter(x=>x.cnpj!==e.cnpj);
     const p=document.createElement('div'); p.className='perfis'; p.setAttribute('role','dialog'); p.setAttribute('aria-label','Empresas');
     p.innerHTML=`<div class="atual">${this.av({cnpj:e.cnpj,nome:e.apelido||e.nome},true)}<b>${esc(e.apelido||e.nome)}</b>
@@ -1254,7 +1278,7 @@ const app={
     (p.querySelector('.lista .item')||p.querySelector('button')).focus();
     setTimeout(()=>document.addEventListener('mousedown',this._fp=ev=>{ if(!ev.target.closest('.perfis,#perfil-btn')) this.fecharPerfis(); }));
   },
-  fecharPerfis(){ $('.perfis')?.remove(); $('#perfil-btn')?.setAttribute('aria-expanded','false'); document.removeEventListener('mousedown',this._fp); },
+  fecharPerfis(){ const pf=$('.perfis:not(.saindo)'); if(pf){ pf.classList.add('saindo'); setTimeout(()=>pf.remove(),110); } $('#perfil-btn')?.setAttribute('aria-expanded','false'); document.removeEventListener('mousedown',this._fp); },
   ajustesDoPerfil(){ this.fecharPerfis(); this.ajustes('empresa'); },
   trocarPerfil(_,el){ this.fecharPerfis(); this.irParaEmpresa(el.dataset.c); },
   irParaEmpresa(cnpj){
@@ -1280,7 +1304,7 @@ const app={
 
   /* ================= Componentes ================= */
   segs(cb,ids){ (ids||[]).forEach(id=>$$(`#${id} button`).forEach(b=>b.onclick=()=>{ if(b.disabled) return; $$(`#${id} button`).forEach(x=>x.setAttribute('aria-checked',x===b)); cb&&cb(b.dataset.v,id); })); },
-  previa(id){ const i=$('#'+id), p=$('#'+id+'-prev'), f=()=>p.innerHTML='Exemplo: <b>'+esc(aplicarModelo(i.value,'Unidade Centro'))+'</b>'; i.oninput=f; f(); },
+  previa(id){ const i=$('#'+id), p=$('#'+id+'-prev'), f=()=>p.innerHTML=`<span class="pv-r">Como fica na nota</span><div class="pv">${esc(aplicarModelo(i.value,'Unidade Centro','Cliente Exemplo Ltda'))||'—'}</div>`; i.oninput=f; f(); },
   inserir(_,el){ const i=$('#'+el.dataset.alvo), pos=i.selectionStart??i.value.length; i.value=i.value.slice(0,pos)+el.dataset.t+i.value.slice(i.selectionEnd??pos); i.focus(); i.dispatchEvent(new Event('input')); },
   invalido(id,msg){
     $$('.field.invalido').forEach(f=>{f.classList.remove('invalido');f.querySelector('[aria-invalid]')?.removeAttribute('aria-invalid')});
@@ -1305,11 +1329,12 @@ const app={
     this.folha2(titulo,texto,'',ok,()=>{ this.fechar2(); acao(); },{destrutivo,onCancel,...(cancelar?{cancelar}:{})});
     if(!destrutivo) $('#sheet2-ok').focus();
   },
-  _montar(sel,id,titulo,sub,corpo,ok,acao,{cancelar='Cancelar',destrutivo=false,onCancel,soOk=false,extra=''}={}){
-    const el=$(sel); this[`_volta_${id}`]=document.activeElement; this[`_cancel_${id}`]=onCancel;
+  _montar(sel,id,titulo,sub,corpo,ok,acao,{cancelar='Cancelar',destrutivo=false,onCancel,soOk=false,extra='',larga=false}={}){
+    const el=$(sel); el.classList.toggle('larga',!!larga); this[`_volta_${id}`]=document.activeElement; this[`_cancel_${id}`]=onCancel;
     el.innerHTML=`<div class="sh"><h3 id="${id}-t">${esc(titulo)}</h3>${sub?`<p>${esc(sub)}</p>`:''}</div>${corpo?`<div class="sb">${corpo}</div>`:''}
       <div class="sf">${extra}<span class="s spacer" id="${id}-status" role="status" style="align-self:center"></span><button class="btn" id="${id}-c" ${soOk?'hidden':''}>${esc(cancelar)}</button><button class="btn ${destrutivo?'red':'primary'}" id="${id}-ok">${esc(ok)}</button></div>`;
     el.parentNode.classList.add('on');
+    el.parentNode.onmousedown=ev=>{ if(ev.target===el.parentNode&&!soOk||ev.target===el.parentNode&&larga) id==='sheet'?this.fechar(true):this.fechar2(true); };
     const okBtn=$(`#${id}-ok`);
     okBtn.onclick=async()=>{ if(okBtn.dataset.ocupado) return; okBtn.dataset.ocupado='1'; okBtn.disabled=true;
       try{ await acao(); } finally{ delete okBtn.dataset.ocupado; if(okBtn.isConnected) okBtn.disabled=false; } };
@@ -1341,7 +1366,7 @@ const app={
       if(e.key==='ArrowDown'){ e.preventDefault(); bs[(i+1)%bs.length].focus(); } if(e.key==='ArrowUp'){ e.preventDefault(); bs[(i-1+bs.length)%bs.length].focus(); } };
     setTimeout(()=>document.addEventListener('click',()=>this.fecharMenu(),{once:true}));
   },
-  fecharMenu(){ const m=$('.menu'); if(m){ m.remove(); this._menuOrigem?.focus(); } },
+  fecharMenu(){ const m=$('.menu:not(.saindo)'); if(m){ m.classList.add('saindo'); setTimeout(()=>m.remove(),matchMedia('(prefers-reduced-motion: reduce)').matches?0:110); this._menuOrigem?.focus(); } },
   carregando(sel,txt){ const b=$(sel); if(b){ b.disabled=true; b.textContent=txt; } },
   toast(t,acao){
     const el=$('#toast'), b=$('#toast-b'); $('#toast-t').textContent=t; b.hidden=!acao;

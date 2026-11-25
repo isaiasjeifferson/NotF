@@ -561,7 +561,7 @@ class Api:
         for n in notas:
             n["cnpj"] = digitos(n["cnpj"])
             n["nome"] = cli.get(n["cnpj"], {}).get("nome", "")
-            n["descricao"] = n["descricao"] or (dados.descricao(p, n["unidade"]) if p else n["unidade"])
+            n["descricao"] = n["descricao"] or (dados.descricao(p, n["unidade"], cliente=n["nome"]) if p else n["unidade"])
         return {"notas": notas, "ignoradas": ignoradas}
 
     def clientes_salvos(self):
@@ -607,14 +607,15 @@ class Api:
         p = dados.empresa()
         if not p:
             return ""
-        anterior = (dados.clientes(p).get(digitos(doc), {}).get("unidades", {}).get(unidade or "", {}).get("descricao") or "")
+        cad = dados.clientes(p).get(digitos(doc), {})
+        anterior = cad.get("unidades", {}).get(unidade or "", {}).get("descricao") or ""
         if not anterior:
-            return dados.descricao(p, unidade or "")
+            return dados.descricao(p, unidade or "", cliente=cad.get("nome", ""))
         hoje = datetime.now()
         meses = "|".join(dados.MESES)
         novo, n = re.subn(rf"\b({meses})(\s+de\s+)\d{{4}}\b", lambda m: f"{dados.MESES[hoje.month - 1]}{m.group(2)}{hoje.year}",
                           anterior, flags=re.IGNORECASE)
-        return novo if n else dados.descricao(p, unidade or "")
+        return novo if n else dados.descricao(p, unidade or "", cliente=cad.get("nome", ""))
 
     def remover_cliente(self, doc, unidade=None):
         p = dados.empresa()
@@ -722,9 +723,9 @@ class Api:
             return {"ok": False}
         return {"ok": True}
 
-    def descricao(self, unidade):
+    def descricao(self, unidade, cliente=""):
         p = dados.empresa()
-        return dados.descricao(p, str(unidade or "")) if p else ""
+        return dados.descricao(p, str(unidade or ""), cliente=str(cliente or "")) if p else ""
 
     def buscar_nome(self, doc, _perfil=None):
         doc = digitos(doc)

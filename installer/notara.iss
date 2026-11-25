@@ -80,6 +80,7 @@ begin
   Titulo.Font.Name := 'Segoe UI';
   Titulo.Font.Size := 15;
   Titulo.Font.Style := [fsBold];
+  Titulo.Font.Color := $000C6AEA;
   Titulo.Top := ScaleY(8);
   Titulo.Left := 0;
 
