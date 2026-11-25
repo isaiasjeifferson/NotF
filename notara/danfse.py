@@ -1,10 +1,13 @@
 """Gera o DANFSe (PDF da nota) a partir do XML da NFS-e autorizada pela Receita.
 
 O XML é o documento fiscal; o DANFSe é só a representação impressa dele. Gerar o PDF localmente
-evita depender do download no site da Receita. O layout segue o DANFSe v2.0 do Emissor Nacional.
+é obrigação do sistema emissor desde que a Receita desligou a API de PDF (NT 008/2026). O layout reproduz
+o DANFSe v2.0 que o portal do Emissor Nacional gera, bloco a bloco.
 """
 from datetime import datetime
 from io import BytesIO
+
+from pathlib import Path
 
 from lxml import etree
 from reportlab.graphics import renderPDF
@@ -12,6 +15,7 @@ from reportlab.graphics.barcode.qr import QrCodeWidget
 from reportlab.graphics.shapes import Drawing
 from reportlab.lib.colors import HexColor, black
 from reportlab.lib.pagesizes import A4
+from reportlab.lib.utils import ImageReader
 from reportlab.pdfbase.pdfmetrics import stringWidth
 from reportlab.pdfgen import canvas
 
@@ -19,6 +23,7 @@ NS = {"n": "http://www.sped.fazenda.gov.br/nfse"}
 CONSULTA = "https://www.nfse.gov.br/ConsultaPublica/?tpc=1&chave={chave}"
 CINZA = HexColor("#EDEDED")
 LINHA = HexColor("#8A8A8A")
+LOGO = Path(__file__).parent / "logo_nfse.png"
 
 REG_SN = {"1": "Regime de apuração dos tributos federais e municipal pelo Simples Nacional",
           "2": "Regime de apuração dos tributos federais pelo SN e ISSQN pela NFS-e",
@@ -104,7 +109,10 @@ class _Folha:
         self.c.setFillColor(CINZA)
         self.c.rect(self.x0, self.y - 12, col - 6, 12, stroke=0, fill=1)
         self.c.setFillColor(black)
-        self.texto(self.x0 + 3, self.y - 9, titulo, 8, True)
+        tam = 8
+        while tam > 6 and stringWidth(titulo, "Helvetica-Bold", tam) > col - 10:
+            tam -= 0.25
+        self.texto(self.x0 + 3, self.y - 9, titulo, tam, True)
         for i, linha in enumerate(linhas):
             for j, cel in enumerate(linha):
                 if cel is None or (i == 0 and j == 0 and rotulo_col0):
@@ -143,17 +151,22 @@ def gerar(xml_nfse: bytes) -> bytes:
     c.setTitle(f"NFS-e {_t(inf, 'n:nNFSe')}")
     f = _Folha(c)
 
-    # Cabeçalho
-    c.setFont("Helvetica-Bold", 16)
-    c.setFillColor(HexColor("#0B6A3A"))
-    c.drawString(f.x0, f.y - 22, "NFS-e")
+    # Moldura e cabeçalho cinza, como no portal
+    c.setStrokeColor(LINHA)
+    c.rect(f.x0 - 4, 14, f.w + 8, A4[1] - 14 - 18, stroke=1, fill=0)
+    c.setFillColor(CINZA)
+    c.rect(f.x0 - 4, f.y - 38, f.w + 8, 42, stroke=0, fill=1)
     c.setFillColor(black)
-    c.setFont("Helvetica", 6.5)
-    c.drawString(f.x0, f.y - 31, "Nota Fiscal de Serviço eletrônica")
+    if LOGO.exists():
+        c.drawImage(ImageReader(str(LOGO)), f.x0, f.y - 33, width=150, height=150 * 107 / 540, mask="auto")
+    else:
+        c.setFont("Helvetica-Bold", 16)
+        c.drawString(f.x0, f.y - 22, "NFS-e")
     c.setFont("Helvetica-Bold", 10)
     c.drawCentredString(A4[0] / 2, f.y - 14, "DANFSe v2.0")
     c.drawCentredString(A4[0] / 2, f.y - 26, "Documento Auxiliar da NFS-e")
-    f.texto(A4[0] - 200, f.y - 12, f"Município: {_t(inf, 'n:xLocEmi')}", 8.5)
+    uf_emi = _t(inf, "n:emit/n:enderNac/n:UF", "")
+    f.texto(A4[0] - 200, f.y - 12, f"Município: {_t(inf, 'n:xLocEmi')}" + (f" - {uf_emi}" if uf_emi else ""), 8.5)
     f.texto(A4[0] - 200, f.y - 21, f"Ambiente Gerador: {_t(inf, 'n:ambGer')}", 6.5)
     f.texto(A4[0] - 200, f.y - 29, f"Tipo de Ambiente: {_t(dps, 'n:tpAmb')}", 6.5)
     f.y -= 40
@@ -211,8 +224,10 @@ def gerar(xml_nfse: bytes) -> bytes:
     f.c.setStrokeColor(LINHA)
     f.c.line(f.x0, f.y, f.x0 + f.w, f.y)
     f.c.setFont("Helvetica", 7)
-    f.c.drawCentredString(A4[0] / 2, f.y - 8, "INTERMEDIÁRIO DA OPERAÇÃO NÃO IDENTIFICADO NA NFS-e")
-    f.y -= 12
+    f.c.drawCentredString(A4[0] / 2, f.y - 8, "DESTINATÁRIO DA OPERAÇÃO NÃO IDENTIFICADO NA NFS-e")
+    f.c.line(f.x0, f.y - 11, f.x0 + f.w, f.y - 11)
+    f.c.drawCentredString(A4[0] / 2, f.y - 19, "INTERMEDIÁRIO DA OPERAÇÃO NÃO IDENTIFICADO NA NFS-e")
+    f.y -= 23
 
     ctn = _t(serv, "n:cServ/n:cTribNac", "")
     cod = f"{ctn[:2]}.{ctn[2:4]}.{ctn[4:]}" if len(ctn) == 6 else ctn
@@ -220,7 +235,7 @@ def gerar(xml_nfse: bytes) -> bytes:
     f.secao("SERVIÇO PRESTADO", [
         [None, ("Código de Tributação Nacional/Municipal", f"{cod} / {_t(serv, 'n:cServ/n:cTribMun')}"),
          ("Código da NBS", f"{nbs[0]}.{nbs[1:5]}.{nbs[5:7]}.{nbs[7:]}" if len(nbs) == 9 else (nbs or "-")),
-         ("Local da Prestação / Sigla UF / País", f"{_t(inf, 'n:xLocPrestacao')}")],
+         ("Local da Prestação / Sigla UF / País", f"{_t(inf, 'n:xLocPrestacao')} / {uf_emi or '-'} / -")],
     ])
     f.texto(f.x0 + 2, f.y - 4, _t(inf, "n:xTribNac", ""), 7.5)
     f.y -= 8
@@ -229,9 +244,32 @@ def gerar(xml_nfse: bytes) -> bytes:
     tm = vdps.find("n:trib/n:tribMun", NS) if vdps is not None else None
     f.secao("TRIBUTAÇÃO MUNICIPAL (ISSQN)", [
         [None, ("Tipo de Tributação do ISSQN", TRIB_ISS.get(_t(tm, "n:tribISSQN"), "-")),
-         ("Município / Sigla UF / País de Incidência do ISSQN", _t(inf, "n:xLocIncid")), None],
+         ("Município / Sigla UF / País de Incidência do ISSQN", f"{_t(inf, 'n:xLocIncid')} / {uf_emi or '-'} / -"), None],
         [("BC ISSQN", _brl(_t(vnf, "n:vBC", ""))), ("Alíquota Aplicada", (_t(vnf, "n:pAliqAplic") + "%") if _t(vnf, "n:pAliqAplic") != "-" else "-"),
          ("Retenção do ISSQN", RET_ISS.get(_t(tm, "n:tpRetISSQN"), "-")), ("ISSQN Apurado", _brl(_t(vnf, "n:vISSQN", "")))],
+    ])
+
+    tf = vdps.find("n:trib/n:tribFed", NS) if vdps is not None else None
+    f.secao("TRIBUTAÇÃO FEDERAL (EXCETO CBS)", [
+        [None, ("IRRF", _brl(_t(tf, "n:vRetIRRF", ""))), ("Contribuição Previdenciária - Retida", _brl(_t(tf, "n:vRetCP", ""))),
+         ("Contribuições Sociais - Retidas", _brl(_t(tf, "n:vRetCSLL", "")))],
+        [("PIS - Débito Apuração Própria", _brl(_t(tf, "n:piscofins/n:vPis", ""))),
+         ("COFINS - Débito Apuração Própria", _brl(_t(tf, "n:piscofins/n:vCofins", ""))),
+         ("Descrição Contrib. Sociais - Retidas", "-"), None],
+    ])
+    ib = inf.find("n:IBSCBS", NS)
+    g = lambda cam: _t(ib, cam)
+    f.secao("TRIBUTAÇÃO IBS/CBS", [
+        [None, ("CST / cClassTrib", f"{_t(dps, 'n:IBSCBS/n:valores/n:trib/n:gIBSCBS/n:CST')} / {_t(dps, 'n:IBSCBS/n:valores/n:trib/n:gIBSCBS/n:cClassTrib')}"),
+         ("Indicador de Operação / Código IBGE Incidência / Município Incidência / Sigla UF", f"{_t(dps, 'n:IBSCBS/n:cIndOp')} / {g('n:cLocalidadeIncid')} / {g('n:xLocalidadeIncid')} / -"), None],
+        [("Exclusões e Reduções da Base de Cálculo", _brl(_t(ib, "n:valores/n:vCalcReeRepRes", "0"))),
+         ("Base de Cálculo Após Exclusões e Reduções", _brl(_t(ib, "n:valores/n:vBC", ""))),
+         ("Red. Alíquota IBS / Red. Alíquota CBS", f"{g('n:valores/n:uf/n:pRedAliqUF')} / {g('n:valores/n:fed/n:pRedAliqCBS')}"),
+         ("Alíquota - IBS UF / IBS Mun", f"{g('n:valores/n:uf/n:pIBSUF')} / {g('n:valores/n:mun/n:pIBSMun')}")],
+        [("Aliq. Efetiva Municipal - IBS", g("n:valores/n:mun/n:pAliqEfetMun")), ("Valor Apurado Municipal - IBS", _brl(g("n:totCIBS/n:gIBS/n:gIBSMunTot/n:vIBSMun"))),
+         ("Aliq. Efetiva Estadual - IBS", g("n:valores/n:uf/n:pAliqEfetUF")), ("Valor Apurado Estadual - IBS", _brl(g("n:totCIBS/n:gIBS/n:gIBSUFTot/n:vIBSUF")))],
+        [("Valor Total Apurado - IBS", _brl(g("n:totCIBS/n:gIBS/n:vIBSTot"))), ("Alíquota - CBS", g("n:valores/n:fed/n:pCBS")),
+         ("Alíquota Efetiva - CBS", g("n:valores/n:fed/n:pAliqEfetCBS")), ("Valor Total Apurado - CBS", _brl(g("n:totCIBS/n:gCBS/n:vCBS")))],
     ])
 
     vserv = _t(vdps, "n:vServPrest/n:vServ", "0")
@@ -240,12 +278,16 @@ def gerar(xml_nfse: bytes) -> bytes:
          ("Desconto Incondicionado", _brl(_t(vdps, "n:vDescCondIncond/n:vDescIncond", ""))),
          ("Desconto Condicionado", _brl(_t(vdps, "n:vDescCondIncond/n:vDescCond", "")))],
         [("Total das Retenções (ISSQN / Federais)", _brl(_t(vnf, "n:vTotalRet", ""))),
-         ("VALOR LÍQUIDO DA NFS-e", _brl(_t(vnf, "n:vLiq", vserv))), None, None],
+         ("VALOR LÍQUIDO DA NFS-e", _brl(_t(vnf, "n:vLiq", vserv))),
+         ("Total do IBS/CBS", _brl(_t(ib, "n:totCIBS/n:vTotNF", "0"))),
+         ("VALOR LÍQUIDO DA NFS-e + IBS/CBS", _brl(_t(ib, "n:totCIBS/n:vTotNF", "0")))],
     ])
 
-    ptot = _t(vdps, "n:trib/n:totTrib/n:pTotTribSN", "")
-    info = [f"Totais aproximados dos Tributos cfe. Lei n° 12.741/2012: "
-            + (f"{ptot.replace('.', ',')}% (alíquota do Simples Nacional)" if ptot not in ("", "-") else "Federais: -; Estaduais: -; Municipais: -;")]
+    tt = vdps.find("n:trib/n:totTrib/n:vTotTrib", NS) if vdps is not None else None
+    info = ["Totais aproximados dos Tributos cfe. Lei n° 12.741/2012: "
+            f"Federais: {_brl(_t(tt, 'n:vTotTribFed', '')) if tt is not None else '-'}; "
+            f"Estaduais: {_brl(_t(tt, 'n:vTotTribEst', '')) if tt is not None else '-'}; "
+            f"Municipais: {_brl(_t(tt, 'n:vTotTribMun', '')) if tt is not None else '-'};"]
     extra = _t(serv, "n:infoCompl/n:xInfComp", "")
     if extra not in ("", "-"):
         info.append(extra)
@@ -268,8 +310,6 @@ def gerar(xml_nfse: bytes) -> bytes:
     f.texto(f.x0 + col + 4, yb + 6, "IDENTIFICAÇÃO E ASSINATURA", 6, True)
     f.texto(f.x0 + 2 * col + 4, yb + 6, "N° NFS-e / CHAVE NFS-e", 6, True)
     f.texto(f.x0 + 2 * col + 4, yb - 3, f"{_t(inf, 'n:nNFSe')} / {chave}", 6.5)
-    f.texto(f.x0, 18, "Representação gráfica gerada pelo Notara a partir do XML da NFS-e autorizada. "
-                      "Confira a autenticidade pela chave de acesso no portal nacional da NFS-e.", 5.5)
     c.showPage()
     c.save()
     return buf.getvalue()

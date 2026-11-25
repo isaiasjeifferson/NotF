@@ -3,7 +3,7 @@ from PyInstaller.utils.hooks import collect_submodules
 
 ocultos = ["webview.platforms.edgechromium", "clr_loader"]
 ocultos += collect_submodules("reportlab.graphics.barcode")  # carregados dinamicamente pelo reportlab
-a = Analysis(["run.py"], datas=[("notara/ui", "notara/ui"), ("notara/schemas", "notara/schemas"), ("notara/catalogo.json", "notara"),
+a = Analysis(["run.py"], datas=[("notara/ui", "notara/ui"), ("notara/schemas", "notara/schemas"), ("notara/catalogo.json", "notara"), ("notara/logo_nfse.png", "notara"),
                                 ("tests/nfse_exemplo.xml", "notara")],
              hiddenimports=ocultos, excludes=["tkinter", "pytest"])
 pyz = PYZ(a.pure)
