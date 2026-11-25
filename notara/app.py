@@ -20,7 +20,7 @@ import requests
 from . import __version__, catalogo, correio, dados, importar, nfse
 from .nfse import Bloqueio, NfseErro, SemResposta, digitos
 
-REPO = "isaiasjeifferson/notara"  # nome antigo do repositório: o GitHub redireciona para o novo
+REPO = "isaiasjeifferson/NotF"
 REPOS_OK = ("isaiasjeifferson/notara", "isaiasjeifferson/notf")
 ENVIO_PADRAO = {"provedor": "gmail", "servidor": "smtp.gmail.com", "porta": 587, "usuario": "", "nome_remetente": "",
                 "responder_para": "", "cc_padrao": "", "assunto": correio.ASSUNTO, "mensagem": correio.MENSAGEM, "auto": False}
