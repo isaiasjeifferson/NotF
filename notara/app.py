@@ -659,6 +659,13 @@ class Api:
         dados.salvar_cliente(p, doc, nome, extra=extra)
         return {"ok": True, "preenchidos": preenchidos}
 
+    def consultar_cep(self, cep):
+        cep = digitos(cep)
+        if len(cep) != 8:
+            return {"ok": False, "erro": "O CEP tem 8 números."}
+        achado = self._consultar_cep(cep)
+        return {"ok": True, "dados": achado} if achado else {"ok": False, "erro": "CEP não encontrado. Preencha o endereço à mão."}
+
     @staticmethod
     def _consultar_cep(cep):
         """Endereço e código IBGE do município pelo CEP (ViaCEP; BrasilAPI como reserva)."""

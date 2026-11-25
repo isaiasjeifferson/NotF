@@ -106,6 +106,8 @@ main{flex:1;overflow:auto;padding:0 32px 24px}
 .check-n{width:22px;height:22px;border-radius:50%;border:1.5px solid var(--label3);display:grid;place-items:center;color:#fff;flex:none}
 .check-n[aria-checked=true]{background:var(--blue);border-color:var(--blue)}
 .row.apagada .t,.row.apagada .s{color:var(--label3)}
+@keyframes brilho{0%{background-position:100% 0}100%{background-position:-100% 0}}
+.field.carregando input{color:transparent;border-radius:6px;background:linear-gradient(90deg,var(--fill) 25%,var(--fill2) 50%,var(--fill) 75%);background-size:200% 100%;animation:brilho 1.1s linear infinite}
 .aj-cab{display:flex;align-items:center;gap:14px;margin:2px 0 14px}
 .aj-logo{position:relative;width:64px;height:64px;border-radius:16px;flex:none;padding:0;overflow:hidden;background:#fff;box-shadow:inset 0 0 0 1px var(--sep)} .aj-logo img{width:100%;height:100%;object-fit:contain} .aj-logo .avatar{border-radius:16px} .aj-logo .lapis{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.45);color:#fff;opacity:0;transition:opacity .15s} .aj-logo:hover .lapis,.aj-logo:focus-visible .lapis{opacity:1}
 .pk-res{max-height:300px;overflow:auto} .pk-res .row{min-height:60px;padding:12px 16px;gap:12px} .pk-res .t{font-size:14px;margin-bottom:2px} .pk-res .s{white-space:normal;line-height:1.35}
@@ -818,13 +820,25 @@ const app={
     const alvo=i>=0?i:(this._h.push(x),this._h.length-1); el.dataset.i=alvo; this.menuNota(_,el); },
   async carregarDadosCliente(cnpj,box='#cli-dados'){
     const r=await api().cliente(cnpj); if(!r.ok||!$(box)) return; const c=r.cliente, P=box==='#cli-dados'?'c':'n';
-    const F=[['nome','Nome / Razão social',''],['email','E-mail','Opcional'],['email_cc','Cópia (CC)','Outros e-mails, separados por vírgula'],['fone','Telefone','Com DDD'],['im','Inscrição Municipal','Opcional'],
-      ['cep','CEP','Digite e o endereço vem sozinho'],['logradouro','Endereço','Rua, avenida…'],['numero','Número',''],['complemento','Complemento','Opcional'],
-      ['bairro','Bairro',''],['municipio','Cidade',''],['uf','Estado','UF']].filter(f=>P==='c'||f[0]!=='nome');
+    const F=[['nome','Nome / Razão social','Obrigatório'],['email','E-mail','Opcional'],['email_cc','Cópia (CC)','Outros e-mails, separados por vírgula'],['fone','Telefone','Opcional · com DDD'],['im','Inscrição Municipal','Opcional'],
+      ['cep','CEP','Digite e o endereço vem sozinho'],['logradouro','Endereço','Preenchido pelo CEP'],['numero','Número','Ex.: 530'],['complemento','Complemento','Opcional'],
+      ['bairro','Bairro','Preenchido pelo CEP'],['municipio','Cidade','Preenchido pelo CEP'],['uf','Estado','Preenchido pelo CEP']].filter(f=>P==='c'||f[0]!=='nome');
     $(box).innerHTML=F.map(([k,r,ph])=>`<div class="field" id="f${P}-${k}"><label for="${P}-${k}">${r}</label><input id="${P}-${k}" data-k="${k}" value="${esc(c[k]||'')}" placeholder="${ph}" ${k==='uf'?'maxlength="2" style="text-transform:uppercase"':''}></div>`).join('')
       +`<div class="field col" id="f${P}-info"><label for="${P}-info">Informações complementares</label><input id="${P}-info" data-k="info" value="${esc(c.info||'')}" placeholder="Ex.: Contrato nº 123/2026 · Empenho 456"></div>`;
+    const cepIn=$(`#${P}-cep`); let ultimoCep=dig(cepIn.value);
+    const buscarCep=async()=>{ const d=dig(cepIn.value); if(d.length!==8||d===ultimoCep) return; ultimoCep=d;
+      const alvos=['logradouro','bairro','municipio','uf'].map(k=>$(`#${P}-${k}`));
+      alvos.forEach(x=>{ x.closest('.field').classList.add('carregando'); x.value=''; x.placeholder='Buscando…'; });
+      const r=await api().consultar_cep(d);
+      alvos.forEach(x=>{ x.closest('.field').classList.remove('carregando'); x.placeholder='Preenchido pelo CEP'; });
+      if(!r.ok){ this.invalido(`f${P}-cep`,r.erro); return; }
+      const campos={cep:d,...r.dados}; for(const [k,v] of Object.entries(r.dados)){ const x=$(`#${P}-${k}`); if(x) x.value=v||''; }
+      cepIn.value=d.replace(/(\d{5})(\d{3})/,'$1-$2');
+      const s2=await api().salvar_dados_cliente(cnpj,campos); if(!s2.ok) return this.toast(s2.erro);
+      this._clis=null; this.carregarClientes(); this.toast('Endereço preenchido pelo CEP. Complete o número.'); $(`#${P}-numero`).focus(); };
+    cepIn.addEventListener('input',()=>{ if(dig(cepIn.value).length===8) buscarCep(); });
     $$(box+' input').forEach(i=>i.addEventListener('change',async()=>{
-      const k=i.dataset.k; if(k==='nome'&&!i.value.trim()) return;
+      const k=i.dataset.k; if(k==='nome'&&!i.value.trim()) return; if(k==='cep'){ if(dig(i.value).length===8) return buscarCep(); }
       const r=await api().salvar_dados_cliente(cnpj,{[k]:k==='uf'?i.value.toUpperCase():i.value});
       if(!r.ok) return this.invalido(`f${P}-`+(r.campo||k),r.erro);
       for(const [kk,v] of Object.entries(r.preenchidos||{})){ const x=$(`#${P}-${kk}`); if(x) x.value=v; }
@@ -1343,7 +1357,7 @@ const app={
     itens.filter(Boolean).forEach(it=>{ if(it==='-'){ m.appendChild(document.createElement('hr')); return; }
       const b=document.createElement('button'); b.setAttribute('role','menuitem'); if(it[2]) b.className=it[2];
       b.innerHTML=`${it.length>3?`<span class="ck">${it[3]?ICON.check:''}</span>`:''}<span></span>`; b.lastChild.textContent=it[0];
-      b.onclick=()=>{ this.fecharMenu(); it[1](); }; m.appendChild(b); });
+      b.onclick=()=>{ this.fecharMenu(); it[1](); }; b.onmouseenter=()=>b.focus({preventScroll:true}); m.appendChild(b); });
     document.body.appendChild(m); const r=el.getBoundingClientRect();
     m.style.top=Math.min(r.bottom+4,innerHeight-m.offsetHeight-8)+'px'; m.style.left=Math.max(8,Math.min(r.left,innerWidth-m.offsetWidth-8))+'px';
     const bs=[...m.querySelectorAll('button')]; bs[0]?.focus(); this._menuOrigem=el;
