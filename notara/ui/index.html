@@ -140,7 +140,7 @@ details[open]>*:not(summary){animation:fadein var(--dur-2) var(--ease)}
 .cal-grade button:hover:not(:disabled){background:var(--fill)} .cal-grade button.hoje{color:var(--blue);font-weight:700} .cal-grade button.on{background:var(--blue);color:#fff;font-weight:600} .cal-grade button:disabled{color:var(--label3)}
 .cal-meses{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;animation:fadein var(--dur-2) var(--ease)} .cal-meses button{height:40px;border-radius:8px;font-size:14px;color:var(--label)} .cal-meses button:hover:not(:disabled){background:var(--fill)} .cal-meses button.on{background:var(--blue);color:#fff} .cal-meses button:disabled{color:var(--label3)}
 .cal-pe{display:flex;justify-content:space-between;margin-top:8px;padding-top:8px;border-top:1px solid var(--sep)} .cal-pe button{color:var(--blue);font-weight:500;font-size:13px;padding:4px 6px;border-radius:6px} .cal-pe button:hover{background:var(--fill)}
-.field input[readonly]{color:var(--label2);cursor:default}
+.field input[readonly]{color:var(--label2);cursor:default;pointer-events:none;caret-color:transparent;user-select:none}
 #emitir-btn.armado,.btn.primary.armado{animation:pulso 1s var(--ease) infinite alternate} @keyframes pulso{from{box-shadow:0 0 0 0 rgba(234,106,12,.45)}to{box-shadow:0 0 0 6px rgba(234,106,12,0)}}
 .aj-cab{display:flex;align-items:center;gap:14px;margin:2px 0 14px}
 .aj-logo{position:relative;width:64px;height:64px;border-radius:16px;flex:none;padding:0;overflow:hidden;background:#fff;box-shadow:inset 0 0 0 1px var(--sep)} .aj-logo img{width:100%;height:100%;object-fit:contain} .aj-logo .avatar{border-radius:16px} .aj-logo .lapis{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.45);color:#fff;opacity:0;transition:opacity .15s} .aj-logo:hover .lapis,.aj-logo:focus-visible .lapis{opacity:1}
@@ -473,10 +473,10 @@ const app={
         <div class="group" style="margin-bottom:6px"><div class="check">${ICON.ok}<div><b>${esc(c.cert.nome)}</b><div class="s">CNPJ ${fmtDoc(c.cert.cnpj)} · certificado válido até ${esc(c.cert.validade)}</div></div></div></div>
 
         <div class="group">
-          <div class="field" id="fe-nome"><label class="req" for="e-nome">Razão social</label><input id="e-nome" value="${esc(c.empresa.nome)}" ${c.empresa.nome?'readonly':''}></div>
+          <div class="field" id="fe-nome"><label class="req" for="e-nome">Razão social</label><input id="e-nome" value="${esc(c.empresa.nome)}" ${c.empresa.nome?'readonly tabindex="-1"':''}></div>
           <div class="field"><label for="e-apelido">Apelido</label><input id="e-apelido" value="${esc(c.empresa.apelido||'')}" ></div>
-          <div class="field"><label class="req" for="e-mun">Município</label><input id="e-mun" value="${esc(c.empresa.municipio||'')}" placeholder="Ex.: São Paulo/SP" ${c.empresa.municipio&&c.empresa.municipio_ibge?'readonly':''}></div>
-          <div class="field" id="fe-ibge"><label class="req" for="e-ibge">Código do município</label><input id="e-ibge" class="num" value="${esc(c.empresa.municipio_ibge||'')}"  maxlength="7" ${c.empresa.municipio_ibge?'readonly':''}></div>
+          <div class="field"><label class="req" for="e-mun">Município</label><input id="e-mun" value="${esc(c.empresa.municipio||'')}" placeholder="Ex.: São Paulo/SP" ${c.empresa.municipio&&c.empresa.municipio_ibge?'readonly tabindex="-1"':''}></div>
+          <div class="field" id="fe-ibge"><label class="req" for="e-ibge">Código do município</label><input id="e-ibge" class="num" value="${esc(c.empresa.municipio_ibge||'')}"  maxlength="7" ${c.empresa.municipio_ibge?'readonly tabindex="-1"':''}></div>
         </div>
         <p class="hint">${c.empresa.municipio_ibge?'Dados oficiais do certificado e do CNPJ.':'Não veio pelo CNPJ. Busque “código IBGE '+esc(c.empresa.municipio||'sua cidade')+'” na internet (são 7 números).'}</p>
         <div class="gt">Regime tributário</div>
@@ -1071,11 +1071,11 @@ const app={
     const certTxt=c.erro?esc(c.erro):`Válido até ${esc(c.validade||'—')}`;
     const panes={
       empresa:`<div class="group">
-          <div class="field" id="fa-nome"><label class="req" for="a-nome">Razão social</label><input id="a-nome" value="${esc(e.nome)}" readonly></div>
+          <div class="field" id="fa-nome"><label class="req" for="a-nome">Razão social</label><input id="a-nome" value="${esc(e.nome)}" readonly tabindex="-1"></div>
           <div class="field"><label for="a-apelido">Apelido</label><input id="a-apelido" value="${esc(e.apelido||'')}"></div>
           <div class="field"><span class="lbl">CNPJ</span><div class="val num">${fmtDoc(e.cnpj)}</div></div>
-          <div class="field"><label for="a-mun">Município</label><input id="a-mun" value="${esc(e.municipio)}" ${e.municipio&&e.municipio_ibge?'readonly':''}></div>
-          <div class="field" id="fa-ibge"><label class="req" for="a-ibge">Código do município</label><input id="a-ibge" class="num" maxlength="7" value="${esc(e.municipio_ibge)}" ${e.municipio_ibge?'readonly':''}></div>
+          <div class="field"><label for="a-mun">Município</label><input id="a-mun" value="${esc(e.municipio)}" ${e.municipio&&e.municipio_ibge?'readonly tabindex="-1"':''}></div>
+          <div class="field" id="fa-ibge"><label class="req" for="a-ibge">Código do município</label><input id="a-ibge" class="num" maxlength="7" value="${esc(e.municipio_ibge)}" ${e.municipio_ibge?'readonly tabindex="-1"':''}></div>
           <div class="field"><label for="a-reg">Regime</label><select id="a-reg">${[[3,'Simples Nacional'],[2,'MEI'],[1,'Outro']].map(([v,t])=>`<option value="${v}" ${e.op_simples==v?'selected':''}>${t}</option>`).join('')}</select></div>
           <div class="field" id="fa-aliq"><label class="req" for="a-aliq">Alíquota do Simples</label><input id="a-aliq" class="num" value="${fmtNum(e.aliquota_simples)}"><span class="unit">%</span></div>
         </div>
@@ -1482,9 +1482,11 @@ document.addEventListener('paste',async e=>{
   if($('#scrim').classList.contains('on')||!$('#setup').hidden||app.fase==='enviando'||/INPUT|TEXTAREA/.test(document.activeElement?.tagName)) return;
   const t=e.clipboardData.getData('text'); if(!t) return; e.preventDefault(); app.adicionar(await api().importar_texto(t));
 });
-document.addEventListener('dragover',e=>{ e.preventDefault(); document.body.classList.add('drag'); });
+const soArquivo=e=>[...(e.dataTransfer?.types||[])].includes('Files')&&!$('.scrim.on')&&app.fase!=='enviando';
+document.addEventListener('dragover',e=>{ e.preventDefault(); if(!soArquivo(e)){ e.dataTransfer.dropEffect='none'; return; } document.body.classList.add('drag'); });
 document.addEventListener('dragleave',e=>{ if(!e.relatedTarget) document.body.classList.remove('drag'); });
 document.addEventListener('drop',e=>{
+  if(!soArquivo(e)){ e.preventDefault(); document.body.classList.remove('drag'); return; }
   e.preventDefault(); document.body.classList.remove('drag');
   if(!$('#setup').hidden||app.fase==='enviando') return;
   const f=e.dataTransfer.files[0]; if(!f||!/\.pdf$/i.test(f.name)) return app.toast('Arraste um arquivo PDF.');
