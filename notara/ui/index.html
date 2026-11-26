@@ -483,7 +483,7 @@ const app={
           <div class="field"><span class="lbl">Regime</span><span class="spacer"></span>${segBtns('e-reg',[[3,'Simples Nacional'],[2,'MEI'],[1,'Outro']],c.empresa.op_simples??3)}</div>
           <div class="field" id="fe-aliq"><label class="req" for="e-aliq">Alíquota do Simples</label><input id="e-aliq" class="num" placeholder="0,00" value="${c.empresa.aliquota_simples?fmtNum(c.empresa.aliquota_simples):''}"><span class="unit">%</span></div>
         </div>
-        <p class="hint" id="e-aliq-h">Percentual efetivo da sua faixa no Simples. A contabilidade informa.</p>
+        <p class="hint" id="e-aliq-h">Percentual efetivo da sua faixa no Simples. Solicite à sua contabilidade.</p>
         <div class="setup-nav">${voltar}<span class="spacer"></span><button class="btn primary big" data-a="salvarPasso2">Continuar</button></div>`,
       ()=>`<h2>Serviço que você presta</h2>
         <p class="lead">Escreva o que a empresa faz e escolha na lista oficial. Se fizer mais de um serviço, adicione os outros depois em Ajustes.</p>
