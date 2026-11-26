@@ -143,6 +143,7 @@ details[open]>*:not(summary){animation:fadein var(--dur-2) var(--ease)}
 .field input[readonly]{color:var(--label2);cursor:default;pointer-events:none;caret-color:transparent;user-select:none}
 #emitir-btn.armado,.btn.primary.armado{animation:pulso 1s var(--ease) infinite alternate} @keyframes pulso{from{box-shadow:0 0 0 0 rgba(234,106,12,.45)}to{box-shadow:0 0 0 6px rgba(234,106,12,0)}}
 .sel-btn{display:inline-flex;align-items:center;gap:6px;margin-left:auto;padding:6px 10px;border-radius:8px;background:var(--fill);font:inherit;font-size:14px;color:var(--label);max-width:70%;transition:background var(--dur-1)} .sel-btn:hover{background:var(--fill2)} .sel-btn span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap} .sel-btn svg{color:var(--label2);flex:none}
+.trilho.contagem i{transition:width 1s linear}
 .aj-cab{display:flex;align-items:center;gap:14px;margin:2px 0 14px}
 .aj-logo{position:relative;width:64px;height:64px;border-radius:16px;flex:none;padding:0;overflow:hidden;background:#fff;box-shadow:inset 0 0 0 1px var(--sep)} .aj-logo img{width:100%;height:100%;object-fit:contain} .aj-logo .avatar{border-radius:16px} .aj-logo .lapis{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.45);color:#fff;opacity:0;transition:opacity .15s} .aj-logo:hover .lapis,.aj-logo:focus-visible .lapis{opacity:1}
 .pk-res{max-height:420px;overflow:auto} .pk-res .row{min-height:60px;padding:12px 16px;gap:12px} .pk-res .t{font-size:14px;margin-bottom:2px} .pk-res .s{white-space:normal;line-height:1.35}
@@ -606,9 +607,8 @@ const app={
     } else {
       $('#qtd').textContent=marcadas.length===n.length?plural(n.length,'nota','notas'):`${marcadas.length} de ${n.length} notas`;
       sec.hidden=false; sec.disabled=false; sec.textContent='Limpar'; sec.dataset.a='limpar';
-      prim.disabled=!marcadas.length; prim.dataset.a='confirmarEmissao'; prim.classList.toggle('armado',!!this._armado);
-      prim.textContent=!marcadas.length?'Nenhuma selecionada':this._armado?`Confirmar emissão · ${brl(tot)}`:`Emitir ${plural(marcadas.length,'nota','notas')}`;
-      if(this._armado) $('#qtd').textContent='Clique de novo para emitir';
+      prim.disabled=!marcadas.length; prim.dataset.a='confirmarEmissao';
+      prim.textContent=!marcadas.length?'Nenhuma selecionada':`Emitir ${plural(marcadas.length,'nota','notas')}`; prim.disabled=prim.disabled||!!this._contagem;
     }
     $('#total').textContent=brl(this.fase==='lista'?tot:n.reduce((a,x)=>a+x.valor,0));
     const at=$('.row.ativa'); if(at&&this.fase==='enviando') at.scrollIntoView({block:'nearest',behavior:'smooth'});
@@ -653,6 +653,9 @@ const app={
   abrirTesteConexao(){ this.ajustes('notas'); setTimeout(()=>this.testar(),50); },
   ETAPAS:['Preparando a nota','Reservando o número','Enviando à Receita','Baixando o PDF'],
   cartaoProgresso(){
+    if(this._contagem){ const c=this._contagem, tot=c.idx.reduce((a,i)=>a+(+this.notas[i].valor||0),0);
+      return `<div class="progresso" role="status" aria-live="polite"><div class="topo"><b>Emitindo ${plural(c.idx.length,'nota','notas')} · ${brl(tot)}</b><span class="spacer"></span><button class="btn" data-a="cancelarContagem">Cancelar</button></div>
+        <div class="trilho contagem"><i style="width:${(3-c.seg)/3*100}%"></i></div><div class="agora"><span>Começa em ${c.seg} s. Depois disso, a nota passa a valer.</span></div></div>`; }
     if(this.fase==='lista'||!this.fila) return '';
     if(this.fase==='pronto'&&this.bloqueio) return this.cartaoBloqueio();
     if(this.fase==='pronto') return this.cartaoConclusao();
@@ -665,7 +668,7 @@ const app={
       agora=`<div class="spin"></div><span><b style="color:var(--label);font-weight:500">${esc(x.unidade||x.nome)}</b> · ${this.ETAPAS[atual.etapa||0]}…${seg>=15?` <span style="color:var(--orange)">A Receita está demorando (${seg}s). Aguarde, não feche o programa.</span>`:''}</span>`; }
     else agora=`<div class="spin"></div><span>${this.verificando?'Verificando o acesso à Receita…':'Conectando à Receita…'}</span>`;
     return `<div class="progresso" role="status" aria-live="polite">
-      <div class="topo"><b>${fim?(erro?'Envio concluído':'Notas emitidas'):'Emitindo notas'}</b><span class="s">${feitos} de ${total}</span><span class="pct">${pct}%</span></div>
+      <div class="topo"><b>${fim?(erro?'Envio concluído':'Notas emitidas'):'Emitindo notas'}</b><span class="s">${feitos} de ${total}</span><span class="pct">${pct}%</span>${!fim&&total-feitos>1?'<button class="btn" data-a="pararEmissao" style="margin-left:12px">Parar</button>':''}</div>
       <div class="trilho ${fim?(erro?'fim-erro':'fim'):''}" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><i style="width:${Math.max(pct,2)}%"></i></div>
       <div class="agora">${agora}</div>
       <div class="cont"><span><b>${ok}</b> emitidas</span>${erro?`<span><b style="color:var(--red)">${erro}</b> com erro</span>`:''}<span><b>${total-feitos}</b> na fila</span></div></div>`;
@@ -827,11 +830,15 @@ const app={
   confirmarEmissao(){
     const idx=this.selecionadas(); if(!idx.length) return;
     if(idx.some(i=>!this.notas[i].nome)) return this.toast('Falta o nome do cliente em uma nota. Clique em editar para completar.');
-    // teste: um clique. produção: o mesmo botão pede um segundo clique (sem janela), porque a nota passa a valer.
-    if(this.s.empresa.ambiente==='producao'&&!this._armado){
-      this._armado=true; clearTimeout(this._tArmado); this._tArmado=setTimeout(()=>{ this._armado=false; this.render(); },5000); return this.render(); }
-    clearTimeout(this._tArmado); this._armado=false; this.enviar(idx);
+    if(this.s.empresa.ambiente!=='producao') return this.enviar(idx);
+    // produção: começa sozinho em 3 s, com Cancelar no cartão (a nota passa a valer)
+    this._contagem={idx,seg:3}; this.render();
+    const tique=()=>{ if(!this._contagem) return; this._contagem.seg--; if(this._contagem.seg<=0){ const ix=this._contagem.idx; this._contagem=null; return this.enviar(ix); }
+      this.render(); this._tCont=setTimeout(tique,1000); };
+    this._tCont=setTimeout(tique,1000);
   },
+  cancelarContagem(){ clearTimeout(this._tCont); this._contagem=null; this.render(); this.toast('Emissão cancelada. Nada foi enviado.'); },
+  async pararEmissao(_,el){ el.disabled=true; el.textContent='Parando…'; await api().parar_emissao(); },
   emitirTudo(){ this.enviar(this.selecionadas()); },
   reenviar(){ this.enviar(this.st.map((s,i)=>['erro','parado'].includes(s?.status)?i:-1).filter(i=>i>=0)); },
   async enviar(idx){

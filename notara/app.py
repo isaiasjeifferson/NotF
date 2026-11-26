@@ -752,6 +752,13 @@ class Api:
             return ""
 
     # ------------------------------------------------------------ emissão
+    _parar = False
+
+    def parar_emissao(self):
+        """Não envia as próximas notas do lote; a que já está na Receita termina normalmente."""
+        self._parar = True
+        return {"ok": True}
+
     def emitir(self, notas, senha=None):
         if not isinstance(notas, list) or not notas:
             return {"ok": False, "erro": "A lista está vazia."}
@@ -764,6 +771,7 @@ class Api:
         except Exception as e:
             self._envio.release()
             return {"ok": False, "erro": str(e) if isinstance(e, NfseErro) else "Não foi possível iniciar o envio."}
+        self._parar = False
         threading.Thread(target=self._lote, args=(perfil, cert, receita, notas), daemon=True).start()
         return {"ok": True}
 
@@ -780,7 +788,7 @@ class Api:
             except NfseErro:
                 pass
             for i, nota in enumerate(notas):
-                if bloqueio:
+                if bloqueio or self._parar:  # parada pelo usuário: a nota em andamento termina, as demais ficam
                     self._evento("progresso", {"i": i, "status": "parado"})
                     continue
                 self._evento("progresso", {"i": i, "status": "enviando", "etapa": 0})
