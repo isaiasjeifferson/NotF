@@ -130,6 +130,16 @@ label.req::after{content:" *";color:var(--blue)}
 details[open]>*:not(summary){animation:fadein var(--dur-2) var(--ease)}
 .perfis.saindo{animation:menuout var(--dur-1) forwards;pointer-events:none} .perfis{transform-origin:top right;animation:menuin var(--dur-2) var(--ease-pop)!important}
 .compet{margin-bottom:12px} .compet input[type=date]{font:inherit;color:var(--label);background:none;border:0;text-align:right;color-scheme:light dark}
+.data-btn{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:8px;background:var(--fill);font:inherit;font-size:14px;color:var(--label);font-variant-numeric:tabular-nums;transition:background var(--dur-1)} .data-btn:hover{background:var(--fill2)} .data-btn svg{color:var(--label2)}
+.cal{position:fixed;z-index:80;width:288px;background:var(--card);border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,.22),0 0 0 1px var(--sep);padding:12px;animation:menuin var(--dur-2) var(--ease-pop);transform-origin:top right}
+.cal.saindo{animation:menuout var(--dur-1) forwards;pointer-events:none}
+.cal-cab{display:flex;align-items:center;gap:2px;margin-bottom:8px} .cal-tit{font-weight:600;font-size:15px;padding:4px 6px;border-radius:6px;color:var(--label)} .cal-tit:hover{background:var(--fill);color:var(--blue)}
+.cal-nav{width:30px;height:30px;border-radius:8px;font-size:20px;line-height:1;color:var(--blue)} .cal-nav:hover:not(:disabled){background:var(--fill)} .cal-nav:disabled{opacity:.3}
+.cal-sem,.cal-grade{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;text-align:center} .cal-sem span{font-size:11px;font-weight:600;color:var(--label2);padding:4px 0}
+.cal-grade button{height:34px;border-radius:50%;font-size:14px;color:var(--label);font-variant-numeric:tabular-nums;transition:background var(--dur-1),color var(--dur-1)}
+.cal-grade button:hover:not(:disabled){background:var(--fill)} .cal-grade button.hoje{color:var(--blue);font-weight:700} .cal-grade button.on{background:var(--blue);color:#fff;font-weight:600} .cal-grade button:disabled{color:var(--label3)}
+.cal-meses{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;animation:fadein var(--dur-2) var(--ease)} .cal-meses button{height:40px;border-radius:8px;font-size:14px;color:var(--label)} .cal-meses button:hover:not(:disabled){background:var(--fill)} .cal-meses button.on{background:var(--blue);color:#fff} .cal-meses button:disabled{color:var(--label3)}
+.cal-pe{display:flex;justify-content:space-between;margin-top:8px;padding-top:8px;border-top:1px solid var(--sep)} .cal-pe button{color:var(--blue);font-weight:500;font-size:13px;padding:4px 6px;border-radius:6px} .cal-pe button:hover{background:var(--fill)}
 .aj-cab{display:flex;align-items:center;gap:14px;margin:2px 0 14px}
 .aj-logo{position:relative;width:64px;height:64px;border-radius:16px;flex:none;padding:0;overflow:hidden;background:#fff;box-shadow:inset 0 0 0 1px var(--sep)} .aj-logo img{width:100%;height:100%;object-fit:contain} .aj-logo .avatar{border-radius:16px} .aj-logo .lapis{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.45);color:#fff;opacity:0;transition:opacity .15s} .aj-logo:hover .lapis,.aj-logo:focus-visible .lapis{opacity:1}
 .pk-res{max-height:420px;overflow:auto} .pk-res .row{min-height:60px;padding:12px 16px;gap:12px} .pk-res .t{font-size:14px;margin-bottom:2px} .pk-res .s{white-space:normal;line-height:1.35}
@@ -344,6 +354,8 @@ const parseValor=s=>{s=String(s).replace(/[^\d,.-]/g,'');if(s.includes(','))s=s.
 const fmtCod=c=>(c=dig(c)).length===6?c.replace(/(\d{2})(\d{2})(\d{2})/,'$1.$2.$3'):c;
 const fmtNbs=c=>(c=dig(c)).length===9?c.replace(/(\d)(\d{4})(\d{2})(\d{2})/,'$1.$2.$3.$4'):c;
 const nomeSrv=x=>{const d=(x.nome||x.descricao_servico||'').replace(/\.$/,''); return d.length>48?d.slice(0,46)+'…':d;};
+const isoHoje=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;};
+const fmtData=v=>v?v.split('-').reverse().join('/'):'';
 const fmtNum=v=>(+v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
 const plural=(n,a,b)=>`${n} ${n===1?a:b}`;
 const MESES=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
@@ -561,10 +573,9 @@ const app={
     if(!n.length){ $('#lista').innerHTML=''; return; }
     const grupos=new Map(); n.forEach((x,i)=>{ if(!grupos.has(x.cnpj)) grupos.set(x.cnpj,[]); grupos.get(x.cnpj).push(i); });
     const lista=this.fase==='lista';
-    const hoje=new Date(), iso=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-    this.competencia=this.competencia||iso(hoje);
-    $('#lista').innerHTML=this.cartaoProgresso()+(lista?`<div class="group compet"><div class="field"><label for="compet">Data de competência</label>
-        <input id="compet" type="date" value="${this.competencia}" max="${iso(hoje)}"></div></div>
+    this.competencia=this.competencia||isoHoje();
+    $('#lista').innerHTML=this.cartaoProgresso()+(lista?`<div class="group compet"><div class="field"><span class="lbl">Data de competência</span><span class="spacer"></span>
+        <button class="data-btn" data-a="calLista">${fmtData(this.competencia)}${this.competencia===isoHoje()?' · hoje':''} ${ICON.seta}</button></div></div>
       <div class="gt" style="margin-top:4px"><span>${n.every(x=>this.sel(x))?'Todas selecionadas':`${n.filter(x=>this.sel(x)).length} de ${n.length} selecionadas · as outras ficam guardadas para depois`}</span>
         <button class="link" data-a="marcarTodas">${n.every(x=>this.sel(x))?'Desmarcar todas':'Marcar todas'}</button></div>`:'')
       +[...grupos].map(([doc,idx])=>{ const nome=n[idx[0]].nome||'Buscando nome do cliente…', sub=idx.reduce((a,i)=>a+n[i].valor,0);
@@ -671,7 +682,7 @@ const app={
     const acoes=edit?`<button class="acao" data-a="editar" data-i="${i}" title="Editar" aria-label="Editar nota de ${rot}">${ICON.lapis}</button>
       <button class="acao red" data-a="excluir" data-i="${i}" title="Excluir" aria-label="Excluir nota de ${rot}">${ICON.lixo}</button>`:'';
     return `<div class="row ${lista&&!this.sel(x)?'apagada':''} ${st?.status==='enviando'?'ativa':''}" title="${esc(x.nome)} · ${fmtDoc(x.cnpj)}">${esq}
-        <div class="main" style="text-align:left"><div class="t">${rot}${x.servico&&(this.s.empresa?.servicos||[]).length>1?` <span class="badge">${fmtCod(x.servico.split('|')[0])}</span>`:''}</div><div class="s ${st?.status==='enviando'?'etapa':''}">${st?.status==='enviando'?this.ETAPAS[st.etapa||0]+'…':esc(x.descricao)}</div>${extra}</div>${dir}${acoes}</div>`;
+        <div class="main" style="text-align:left"><div class="t">${rot}${x.competencia?` <span class="badge">${fmtData(x.competencia)}</span>`:''}${x.servico&&(this.s.empresa?.servicos||[]).length>1?` <span class="badge">${fmtCod(x.servico.split('|')[0])}</span>`:''}</div><div class="s ${st?.status==='enviando'?'etapa':''}">${st?.status==='enviando'?this.ETAPAS[st.etapa||0]+'…':esc(x.descricao)}</div>${extra}</div>${dir}${acoes}</div>`;
   },
   alternarSel(_,el){ const x=this.notas[+el.dataset.i]; x.sel=!this.sel(x); this.render(); },
   marcarTodas(){ const todas=this.notas.every(x=>this.sel(x)); this.notas.forEach(x=>x.sel=!todas); this.render(); },
@@ -719,6 +730,7 @@ const app={
         <div class="field" id="ff-nome"><label class="req" for="f-nome">Cliente</label><input id="f-nome" value="${esc(x.nome)}" ></div>
         <div class="field"><label for="f-uni">Unidade</label><input id="f-uni" value="${esc(x.unidade)}"></div>
         <div class="field" id="ff-val"><label class="req" for="f-val">Valor</label><input id="f-val" class="num" value="${x.valor?fmtNum(x.valor):''}" placeholder="0,00"></div>
+        <div class="field"><span class="lbl">Data de competência</span><span class="spacer"></span><button class="data-btn" id="f-data" data-v="${x.competencia||''}" data-a="calNota">${x.competencia?fmtData(x.competencia):`${fmtData(this.competencia||isoHoje())} · da lista`} ${ICON.seta}</button></div>
       </div>${pre&&x.valor?'<p class="hint">Preenchido com o último valor. Altere se mudou.</p>':''}
       ${(this.s.empresa.servicos||[]).length>1?`<div class="gt">Serviço</div><div class="group"><div class="field"><select id="f-srv" aria-label="Serviço" style="flex:1">
         <option value="">Automático</option>${this.s.empresa.servicos.map(v=>{const c=v.cod_nacional+'|'+(v.nbs||'');return `<option value="${c}" ${x.servico===c?'selected':''}>${fmtCod(v.cod_nacional)} · ${esc(nomeSrv(v))}</option>`}).join('')}</select></div></div>`:''}
@@ -728,6 +740,7 @@ const app={
       novo?'Adicionar':'Salvar', async()=>{
         const n={cnpj:dig($('#f-doc').value),nome:$('#f-nome').value.trim(),unidade:$('#f-uni').value.trim(),valor:parseValor($('#f-val').value),descricao:$('#f-desc').value.trim(),sel:novo?true:this.sel(x)};
         if($('#f-srv')?.value) n.servico=$('#f-srv').value;
+        if($('#f-data')?.dataset.v) n.competencia=$('#f-data').dataset.v; else delete n.competencia;
         if(![11,14].includes(n.cnpj.length)) return this.invalido('ff-doc','Confira o CNPJ ou CPF.');
         if(!n.nome) return this.invalido('ff-nome','Informe o nome do cliente.');
         if(!(n.valor>0)) return this.invalido('ff-val','Informe o valor.');
@@ -763,6 +776,42 @@ const app={
     $('#f-desc').value=o.u.nome?await api().descricao_cliente(o.c.cnpj,o.u.nome):await api().descricao('');
     this._dadosCliNota?.(o.c.cnpj); $('#f-qc').value=''; $('#f-qc-res').hidden=true; $('#f-val').focus(); $('#f-val').select(); },
   /* ================= Emitir ================= */
+  calLista(_,el){ this.calendario(el,this.competencia,v=>this.mudarCompetencia(v)); },
+  calNota(_,el){ this.calendario(el,el.dataset.v||this.competencia||isoHoje(),v=>{ el.dataset.v=v; el.innerHTML=`${fmtData(v)} ${ICON.seta}`; },true); },
+  calendario(origem,valor,escolher,naNota){
+    this.fecharCal(); const hoje=isoHoje(); let [y,m]=valor.split('-').map(Number), modo='dias';
+    const c=document.createElement('div'); c.className='cal'; c.setAttribute('role','dialog'); c.setAttribute('aria-label','Escolher data');
+    const desenhar=()=>{
+      let corpo='';
+      if(modo==='dias'){
+        const ini=new Date(y,m-1,1).getDay(), dias=new Date(y,m,0).getDate();
+        corpo=`<div class="cal-sem">${['D','S','T','Q','Q','S','S'].map(d=>`<span>${d}</span>`).join('')}</div><div class="cal-grade">${'<span></span>'.repeat(ini)}`
+          +Array.from({length:dias},(_,i)=>{ const v=`${y}-${String(m).padStart(2,'0')}-${String(i+1).padStart(2,'0')}`;
+            return `<button data-v="${v}" class="${v===valor?'on':''} ${v===hoje?'hoje':''}" ${v>hoje?'disabled':''}>${i+1}</button>`; }).join('')+'</div>';
+      } else if(modo==='meses'){
+        corpo=`<div class="cal-meses">${MESES.map((n,i)=>`<button data-m="${i+1}" class="${i+1===m?'on':''}" ${(y*100+i+1)>(+hoje.slice(0,4)*100+ +hoje.slice(5,7))?'disabled':''}>${n.slice(0,3)}</button>`).join('')}</div>`;
+      } else {
+        const a=+hoje.slice(0,4); corpo=`<div class="cal-meses">${Array.from({length:12},(_,i)=>a-11+i).map(n=>`<button data-y="${n}" class="${n===y?'on':''}">${n}</button>`).join('')}</div>`;
+      }
+      c.innerHTML=`<div class="cal-cab"><button class="cal-tit" data-modo="meses">${MESES[m-1]}</button><button class="cal-tit" data-modo="anos">${y}</button><span class="spacer"></span>
+          <button class="cal-nav" data-d="-1" aria-label="Mês anterior">‹</button><button class="cal-nav" data-d="1" aria-label="Próximo mês" ${y*100+m>=+hoje.slice(0,4)*100+ +hoje.slice(5,7)?'disabled':''}>›</button></div>
+        ${corpo}<div class="cal-pe"><button data-hoje>Hoje</button>${naNota?'<button data-lista>Usar a da lista</button>':''}</div>`;
+    };
+    c.onclick=ev=>{ ev.stopPropagation(); const b=ev.target.closest('button'); if(!b||b.disabled) return;
+      if(b.dataset.v){ escolher(b.dataset.v); return this.fecharCal(); }
+      if(b.dataset.hoje!==undefined){ escolher(hoje); return this.fecharCal(); }
+      if(b.dataset.lista!==undefined){ origem.dataset.v=''; origem.innerHTML=`${fmtData(this.competencia||hoje)} · da lista ${ICON.seta}`; return this.fecharCal(); }
+      if(b.dataset.modo) modo=modo===b.dataset.modo?'dias':b.dataset.modo;
+      if(b.dataset.m){ m=+b.dataset.m; modo='dias'; } if(b.dataset.y){ y=+b.dataset.y; modo='meses'; }
+      if(b.dataset.d){ m+=+b.dataset.d; if(m<1){ m=12; y--; } if(m>12){ m=1; y++; } }
+      desenhar(); };
+    desenhar(); document.body.appendChild(c);
+    const r=origem.getBoundingClientRect(), w=c.offsetWidth, h=c.offsetHeight;
+    c.style.left=Math.max(8,Math.min(r.right-w,innerWidth-w-8))+'px'; c.style.top=(r.bottom+6+h>innerHeight?r.top-h-6:r.bottom+6)+'px';
+    this._cal=c; setTimeout(()=>document.addEventListener('mousedown',this._calFora=ev=>{ if(!c.contains(ev.target)) this.fecharCal(); }));
+  },
+  fecharCal(){ const c=this._cal; if(!c) return; this._cal=null; document.removeEventListener('mousedown',this._calFora);
+    c.classList.add('saindo'); setTimeout(()=>c.remove(),110); },
   mudarCompetencia(v){
     const hoje=new Date(); if(!v) return; const [y,m]=v.split('-').map(Number), [y0,m0]=this.competencia.split('-').map(Number);
     if(new Date(y,m-1,+v.slice(8))>hoje){ this.toast('A competência não pode ser futura.'); return this.render(); }
@@ -779,6 +828,7 @@ const app={
       <div class="group">
         <div class="field"><span class="lbl">Empresa</span><div class="val">${esc(e.apelido||e.nome)}</div></div>
         <div class="field"><span class="lbl">Total</span><div class="val num">${brl(tot)}</div></div>
+        <div class="field"><span class="lbl">Competência</span><div class="val">${[...new Set(idx.map(i=>this.notas[i].competencia||this.competencia||isoHoje()))].map(fmtData).join(', ')}</div></div>
         ${resto?`<div class="field"><span class="lbl">Para depois</span><div class="val">${plural(resto,'nota guardada','notas guardadas')}</div></div>`:''}
       </div>`, 'Emitir', ()=>{ this.fechar(); this.enviar(idx); });
   },
@@ -786,7 +836,7 @@ const app={
   reenviar(){ this.enviar(this.st.map((s,i)=>['erro','parado'].includes(s?.status)?i:-1).filter(i=>i>=0)); },
   async enviar(idx){
     this.erroEnvio=null; this.bloqueio=null; this.avisos();
-    const r=await this.comSenha(s=>api().emitir(idx.map(i=>({...this.notas[i],competencia:this.competencia})),s));
+    const r=await this.comSenha(s=>api().emitir(idx.map(i=>({...this.notas[i],competencia:this.notas[i].competencia||this.competencia})),s));
     if(!r) return;
     if(!r.ok){ this.erroEnvio=r.erro; this.avisos(); return; }
     this.fase='enviando'; this.fila=idx; idx.forEach(i=>this.st[i]={status:'aguardando'}); this.render();
@@ -1395,7 +1445,6 @@ const app={
 };
 
 /* Delegação de cliques: nenhum dado entra em atributos de evento. */
-document.addEventListener('change',e=>{ if(e.target.id==='compet') app.mudarCompetencia(e.target.value); });
 document.addEventListener('click',e=>{
   const el=e.target.closest('[data-a]'); if(!el||el.disabled) return;
   const fn=app[el.dataset.a]; if(typeof fn!=='function') return;
