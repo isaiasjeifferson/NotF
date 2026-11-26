@@ -851,7 +851,8 @@ const app={
     if(nome==='fim'){ this.fase='pronto'; this.verificando=false; this.bloqueio=d.bloqueio||null; if(d.estado) this.s=d.estado; this.avisos();
       api().salvar_rascunho(this.notas.filter((_,i)=>this.st[i]?.status!=='ok'));
       this._clis=null; this.render(); this.renderHistorico(); this.carregarClientes();
-      if(!d.bloqueio) this.toast(d.ok===d.total?plural(d.ok,'nota emitida','notas emitidas'):`${d.ok} de ${d.total} emitidas`); }
+      if(!d.bloqueio&&d.ok===d.total){ clearTimeout(this._tVolta); this._tVolta=setTimeout(()=>{ if(this.fase==='pronto') this.voltarLista(); },2500); }
+      else if(!d.bloqueio) this.toast(`${d.ok} de ${d.total} emitidas`); }
   },
 
   /* ================= Clientes ================= */
@@ -983,6 +984,7 @@ const app={
       this.toast(r.falhas?`${plural(r.salvos,'PDF salvo','PDFs salvos')}. ${r.falhas} não ${r.falhas>1?'puderam':'pôde'} ser gerado.`:`${plural(r.salvos,'PDF salvo','PDFs salvos')}`); });
   },
   selH:new Set(), selModo:false,
+  sairSel(){ if(!this.selModo) return; this.selModo=false; this.selH.clear(); this.barraSel(); this.renderHistorico(); if(this._cliAberto) this.abrirCliente(this._cliAberto); },
   modoSel(){ this.selModo=!this.selModo; if(!this.selModo) this.selH.clear(); this.renderHistorico(); this.barraSel(); if(this._cliAberto) this.abrirCliente(this._cliAberto); },
   selNota(_,el){ const k=el.dataset.k; this.selH.has(k)?this.selH.delete(k):this.selH.add(k); this.renderHistorico(); this.barraSel(); if(this._cliAberto&&$('#clientes .check-n')) this.abrirCliente(this._cliAberto); },
   selMes(_,el){ const idx=this._meses.get(el.dataset.m)||[], ks=idx.map(i=>this._h[i].chave).filter(Boolean), todas=ks.every(k=>this.selH.has(k));
@@ -1398,6 +1400,7 @@ const app={
     if(!destrutivo) $('#sheet2-ok').focus();
   },
   _montar(sel,id,titulo,sub,corpo,ok,acao,{cancelar='Cancelar',destrutivo=false,onCancel,soOk=false,extra='',larga=false}={}){
+    if(id==='sheet'&&!(this.selModo&&/PDF|imprim|e-mail/i.test(titulo))) this.sairSel();
     const el=$(sel); el.classList.toggle('larga',!!larga); this[`_volta_${id}`]=document.activeElement; this[`_cancel_${id}`]=onCancel;
     el.innerHTML=`<div class="sh"><h3 id="${id}-t">${esc(titulo)}</h3>${sub?`<p>${esc(sub)}</p>`:''}</div>${corpo?`<div class="sb">${corpo}</div>`:''}
       <div class="sf">${extra}<span class="s spacer" id="${id}-status" role="status" style="align-self:center"></span><button class="btn" id="${id}-c" ${soOk?'hidden':''}>${esc(cancelar)}</button><button class="btn ${destrutivo?'red':'primary'}" id="${id}-ok">${esc(ok)}</button></div>`;
@@ -1444,6 +1447,7 @@ const app={
 };
 
 /* Delegação de cliques: nenhum dado entra em atributos de evento. */
+document.addEventListener('mousedown',e=>{ if(app.selModo&&!e.target.closest('.barra-sel,.check-n,[data-a=selMes],[data-a=modoSel],[data-a=selNota],.scrim,.menu,.toast')) app.sairSel(); });
 document.addEventListener('click',e=>{
   const el=e.target.closest('[data-a]'); if(!el||el.disabled) return;
   const fn=app[el.dataset.a]; if(typeof fn!=='function') return;
@@ -1464,6 +1468,7 @@ $('#q-cli').onkeydown=e=>{ const n=$$('#res-cli button').length; if(!n) return;
 $('#res-cli').onclick=e=>{ const b=e.target.closest('button[data-r]'); if(b){ e.stopPropagation(); app.escolherCli(+b.dataset.r); } };
 document.addEventListener('mousedown',e=>{ if(!e.target.closest('#busca-cli')) $('#res-cli').hidden=true; });
 document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'&&app.selModo&&!$('.scrim.on')) return app.sairSel();
   if($('#setup').hidden&&app.s?.empresa&&(e.ctrlKey||e.metaKey)&&!e.altKey){
     if(e.shiftKey&&e.key.toLowerCase()==='e'){ e.preventDefault(); return app.painelPerfis(); }
     const n=+e.key; if(n>=1&&n<=9&&!e.shiftKey){ const outras=app.s.empresas.filter(x=>x.cnpj!==app.s.empresa.cnpj);
