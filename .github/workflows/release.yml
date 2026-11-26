@@ -68,5 +68,9 @@ jobs:
             echo "A versão $TAG já foi publicada. Para publicar, aumente a versão em notara/__init__.py."
             exit 0
           fi
-          gh release create "$TAG" *.exe --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+          # latest.json: lido pelo programa sem passar pela API do GitHub (que limita 60 consultas por hora)
+          EXE="NotF-${{ needs.build.outputs.versao }}-Instalar.exe"
+          printf '{"versao":"%s","arquivo":"%s","sha256":"%s","tamanho":%s}' "${{ needs.build.outputs.versao }}" "$EXE" \
+            "$(sha256sum "$EXE" | cut -d' ' -f1)" "$(stat -c%s "$EXE")" > latest.json
+          gh release create "$TAG" *.exe latest.json --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
             --title "NotF ${{ needs.build.outputs.versao }}" --generate-notes

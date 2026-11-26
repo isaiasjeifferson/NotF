@@ -1276,8 +1276,26 @@ class Api:
 
     # ------------------------------------------------------------ atualização
     def verificar_atualizacao(self):
+        # 1º caminho: latest.json do último release (download direto, sem limite de consultas)
+        try:
+            r = requests.get(f"https://github.com/{REPO}/releases/latest/download/latest.json", timeout=8)
+            if r.ok:
+                d = r.json()
+                versao = str(d["versao"])
+                if _versao(versao) <= _versao(__version__):
+                    return {"atual": True}
+                sha = str(d["sha256"]).lower()
+                if re.fullmatch(r"[0-9a-f]{64}", sha) and re.fullmatch(r"NotF-[\d.]+-Instalar\.exe", str(d["arquivo"])):
+                    self._update = {"versao": versao, "sha256": sha, "tamanho": int(d.get("tamanho") or 0),
+                                    "url": f"https://github.com/{REPO}/releases/download/v{versao}/{d['arquivo']}"}
+                    return {"versao": versao}
+        except (requests.RequestException, ValueError, KeyError, TypeError):
+            pass
+        # 2º caminho: API do GitHub (versões publicadas antes do latest.json)
         try:
             r = requests.get(f"https://api.github.com/repos/{REPO}/releases/latest", timeout=6)
+            if r.status_code in (403, 429):
+                return {"erro": "O GitHub limitou as consultas por agora. Tente de novo em alguns minutos."}
             if r.status_code == 404:
                 return {"erro": "Página de atualizações indisponível. Baixe a versão nova com quem distribui o NotF."}
             if not r.ok:
