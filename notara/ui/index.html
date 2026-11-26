@@ -960,7 +960,7 @@ const app={
   renderHistorico(){
     const q=($('#busca').value||'').toLowerCase(), todos=this.s?.historico||[], temTeste=todos.some(x=>x.ambiente==='teste');
     const h=todos.filter(x=>(this.verTestes||x.ambiente!=='teste')&&(!q||[x.nome,x.unidade,x.numero,x.cnpj].join(' ').toLowerCase().includes(q)));
-    const filtro=`<div class="filtro">${temTeste?`<button class="link" data-a="alternarTestes">${this.verTestes?'Ocultar notas de teste':'Mostrar notas de teste'}</button>`:''}<span class="spacer"></span>${todos.length?`<button class="link" data-a="modoSel">${this.selModo?'Concluir':'Selecionar'}</button>`:''}</div>`;
+    const filtro=`<div class="filtro">${temTeste?`<button class="link" data-a="alternarTestes">${this.verTestes?'Ocultar notas de teste':'Mostrar notas de teste'}</button>`:''}<span class="spacer"></span>${this.s.empresa?.ambiente==='producao'?`<button class="link" data-a="buscarReceita" style="margin-right:16px">Buscar na Receita</button>`:''}${todos.length?`<button class="link" data-a="modoSel">${this.selModo?'Concluir':'Selecionar'}</button>`:''}</div>`;
     if(!h.length){
       $('#hist').innerHTML=filtro+(q?`<p class="hint" style="text-align:center;margin-top:40px">Nada encontrado para “${esc(q)}”.</p>`
         :`<div class="empty"><h2>Nenhuma nota emitida ainda</h2><p>As notas emitidas aparecem aqui, com PDF e XML.</p><div class="actions"><button class="btn primary" data-a="irEmitir">Emitir notas</button></div></div>`);
@@ -1095,7 +1095,7 @@ const app={
         </div>`,
       notas:`<div class="group">
           <div class="field"><span class="lbl">Ambiente</span><span class="spacer"></span>${segBtns('a-amb',[['teste','Teste'],['producao','Produção']],e.ambiente,{producao:!e.teste_ok&&e.ambiente!=='producao'})}</div>
-          <div class="field"><span class="lbl">Conexão com a Receita</span><span class="spacer"></span><button class="link" data-a="testar" id="b-testar">Testar</button></div>
+          ${e.ultima_nfse?`<div class="field"><span class="lbl">Última NFS-e na Receita</span><div class="val num">Nº ${e.ultima_nfse}</div></div>`:''}<div class="field"><span class="lbl">Conexão com a Receita</span><span class="spacer"></span><button class="link" data-a="testar" id="b-testar">Testar</button></div>
           <div id="a-con" hidden style="padding:4px 16px 12px"></div>
         </div>
         <p class="hint">${e.ambiente==='producao'?'Na produção, as notas têm validade fiscal.':'No teste, a nota é simulada neste computador: nada vai à Receita e o PDF sai marcado “Sem valor fiscal”.'}</p>
@@ -1231,6 +1231,10 @@ const app={
       lista.length>1?'-':null, lista.length>1?['Remover',()=>{ lista.splice(k,1); this.salvarServicos(lista); },'red']:null]); },
   menuLogo(_,el){ if(!this.s.empresa.logo_url) return this.escolherLogo();
     this.menu(el,[['Trocar imagem…',()=>this.escolherLogo()],['Remover logo',()=>this.removerLogo(),'red']]); },
+  async buscarReceita(_,el){ const t=el.textContent; el.disabled=true; el.textContent='Buscando…';
+    const r=await this.comSenha(sn=>api().sincronizar_receita(sn)); el.disabled=false; el.textContent=t; if(!r) return; if(!r.ok) return this.toast(r.erro);
+    this.s=r.estado; this.renderHistorico(); this._clis=null; this.carregarClientes();
+    this.toast([r.novas?plural(r.novas,'nota trazida','notas trazidas'):'Nenhuma nota nova',r.canceladas?plural(r.canceladas,'cancelamento','cancelamentos'):'',r.ultima?`última na Receita: Nº ${r.ultima}`:''].filter(Boolean).join(' · ')); },
   async exportarBackup(){ const r=await api().exportar_backup(); this.toast(r.ok?`Backup salvo: ${r.arquivo}`:r.erro); },
   async restaurarBackup(){ const f=await lerArquivo('.zip'); if(!f) return;
     const r=await api().importar_backup(f.b64); if(!r.ok) return this.toast(r.erro);

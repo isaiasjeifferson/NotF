@@ -501,6 +501,26 @@ class Receita:
         except (NfseErro, ValueError):
             return b""
 
+    def distribuicao(self, nsu):
+        """Documentos (NFS-e e eventos) em que a empresa aparece, a partir de um NSU (ADN, API de Distribuição).
+        Devolve [(nsu, tipo, xml)]; lista vazia quando não há mais nada."""
+        r = self._req("GET", f"{self.urls['adn']}/contribuintes/DFe/{int(nsu)}", params={"lote": "true"})
+        if r.status_code in (204, 404):
+            return []
+        if r.status_code == 429:
+            raise SemResposta("A Receita limitou as consultas por agora. Tente de novo mais tarde.")
+        if r.status_code != 200:
+            raise NfseErro(f"A Receita recusou a consulta das notas (HTTP {r.status_code}).")
+        d = r.json() or {}
+        acha = lambda o, *ks: next((o[k] for k in o if k.lower() in ks), None) if isinstance(o, dict) else None
+        lote = acha(d, "lotedfe", "lote", "documentos") or []
+        saida = []
+        for doc in lote:
+            xml = _desempacotar(acha(doc, "arquivoxml", "xml", "dfexmlgzipb64"))
+            if xml:
+                saida.append((int(acha(doc, "nsu") or 0), str(acha(doc, "tipodocumento") or ""), xml))
+        return saida
+
     def danfse(self, chave):
         """PDF oficial da nota. 1º: serviço de PDF da Receita (ADN). 2º: portal do Emissor Nacional."""
         log = logging.getLogger("notara")

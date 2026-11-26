@@ -475,3 +475,23 @@ def test_backup_leva_historico_clientes_e_xml(ambiente, tmp_path):
     assert Path(d.historico(perfil)[0]["xml"]).exists() and d.clientes(perfil)
     with pytest.raises(ValueError):
         backup.importar(d.empresa(), b"nao e zip")
+
+
+def test_buscar_na_receita_traz_notas_de_fora_e_ultimo_numero(ambiente):
+    d, n = ambiente.dados, ambiente.nfse
+    api = _cadastrar(ambiente)
+    perfil = {**d.empresa(), "ambiente": "producao"}
+    d.salvar_empresa({"cnpj": perfil["cnpj"], "ambiente": "producao"})
+    sim = n.ReceitaSimulada(None, perfil)
+    root, _ = n.montar_dps({**perfil, "serie": 1}, {**NOTA, "cnpj": "11444777000161"}, 15, "producao")
+    chave, xml = sim.emitir(n.assinar(root, api._cert(perfil)))
+    xml = xml.replace(b"<nNFSe>15</nNFSe>", b"<nNFSe>42</nNFSe>")
+
+    class R:
+        def distribuicao(self, nsu):
+            return [(7, "NFSE", xml)] if nsu == 0 else []
+    api._receita = lambda *a: R()
+    r = api.sincronizar_receita()
+    assert r["ok"] and r["novas"] == 1 and r["ultima"] == 42
+    assert d.historico(perfil)[0]["chave"] == chave and d.empresa()["adn_nsu"] == 7
+    assert api.sincronizar_receita()["novas"] == 0

@@ -16,6 +16,7 @@ from datetime import datetime
 from pathlib import Path
 
 import requests
+from lxml import etree
 
 from . import __version__, catalogo, correio, dados, importar, nfse
 from .nfse import Bloqueio, NfseErro, SemResposta, digitos
@@ -1112,6 +1113,81 @@ class Api:
             dados.atualizar_historico(perfil, chave, situacao="cancelada")
             return {"estado": self.estado()}
         return self._tratar(f)
+
+    # ------------------------------------------------------------ notas que estão na Receita
+    def sincronizar_receita(self, senha=None):
+        """Traz da Receita (API de Distribuição do ADN) as notas da empresa emitidas fora do NotF
+        e os cancelamentos, e informa o número da última NFS-e."""
+        def f():
+            perfil = self._perfil()
+            if self._envio.locked():
+                raise NfseErro("Aguarde a emissão terminar.")
+            receita = self._receita(perfil, self._cert(perfil, senha), "producao")
+            if isinstance(receita, nfse.ReceitaSimulada):
+                raise NfseErro("Disponível só na produção.")
+            nsu = int(perfil.get("adn_nsu") or 0)
+            pasta = dados.pasta_dados(perfil)
+            conhecidas = {x.get("chave") for x in dados.ler_json(pasta / "historico.json", [])}
+            novas, canceladas, ultimo = 0, 0, 0
+            for _ in range(200):  # até 200 lotes por vez; o NSU guardado continua de onde parou
+                lote = receita.distribuicao(nsu + 1 if nsu else 0)
+                lote = [d for d in lote if d[0] > nsu]
+                if not lote:
+                    break
+                for n, tipo, xml in lote:
+                    nsu = max(nsu, n)
+                    try:
+                        raiz = etree.fromstring(xml)
+                    except etree.XMLSyntaxError:
+                        continue
+                    ns = {"n": nfse.NS}
+                    inf = raiz.find(".//n:infNFSe", ns)
+                    if inf is not None:
+                        if (inf.findtext("n:emit/n:CNPJ", "", ns) or "") != perfil["cnpj"]:
+                            continue  # nota em que a empresa é tomadora
+                        num = int(inf.findtext("n:nNFSe", "0", ns) or 0)
+                        ultimo = max(ultimo, num)
+                        chave = inf.get("Id", "")[3:]
+                        if chave and chave not in conhecidas:
+                            self._registrar_da_receita(perfil, chave, inf, xml)
+                            conhecidas.add(chave)
+                            novas += 1
+                        continue
+                    ev = raiz.find(".//n:infPedReg", ns)
+                    if ev is not None and ev.find(".//n:e101101", ns) is not None:
+                        chave = ev.findtext("n:chNFSe", "", ns)
+                        if chave in conhecidas:
+                            dados.atualizar_historico(perfil, chave, situacao="cancelada")
+                            canceladas += 1
+            if novas:  # notas antigas trazidas entram na ordem certa
+                with dados.trava(pasta):
+                    h = dados.ler_json(pasta / "historico.json", [])
+                    h.sort(key=lambda x: datetime.strptime(x.get("data", "01/01/2000 00:00"), "%d/%m/%Y %H:%M"), reverse=True)
+                    dados.gravar_json(pasta / "historico.json", h)
+            dados.salvar_empresa({"cnpj": perfil["cnpj"], "adn_nsu": nsu,
+                                  **({"ultima_nfse": max(ultimo, int(perfil.get("ultima_nfse") or 0))} if ultimo else {})})
+            return {"novas": novas, "canceladas": canceladas,
+                    "ultima": max(ultimo, int(perfil.get("ultima_nfse") or 0)), "estado": self.estado()}
+        return self._tratar(f)
+
+    def _registrar_da_receita(self, perfil, chave, inf, xml):
+        ns = {"n": nfse.NS}
+        g = lambda cam, d="": inf.findtext(cam, d, ns) or d
+        try:
+            quando = datetime.fromisoformat(g("n:dhProc")).replace(tzinfo=None)
+        except ValueError:
+            quando = datetime.now()
+        numero = g("n:nNFSe")
+        nome = g("n:DPS/n:infDPS/n:toma/n:xNome")
+        arq = dados.pasta_notas(perfil, "producao", quando) / (dados.nome_arquivo(numero, nome) + ".xml")
+        if not arq.exists():
+            arq.write_bytes(xml)
+        dados.registrar(perfil, {
+            "data": quando.strftime("%d/%m/%Y %H:%M"), "numero": numero, "chave": chave,
+            "cnpj": g("n:DPS/n:infDPS/n:toma/n:CNPJ") or g("n:DPS/n:infDPS/n:toma/n:CPF"), "nome": nome, "unidade": "",
+            "descricao": g("n:DPS/n:infDPS/n:serv/n:cServ/n:xDescServ"),
+            "valor": float(g("n:DPS/n:infDPS/n:valores/n:vServPrest/n:vServ", "0") or 0),
+            "ambiente": "producao", "situacao": "emitida", "xml": str(arq), "origem": "receita"})
 
     # ------------------------------------------------------------ backup
     def exportar_backup(self):
