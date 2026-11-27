@@ -572,7 +572,14 @@ class Api:
         p = dados.empresa()
         if not p:
             return []
-        lista = [{"cnpj": d, "nome": c["nome"], "usado": c.get("usado", ""),
+        def falta(c):
+            f = []
+            if not c.get("email"):
+                f.append("e-mail")
+            if not all(c.get(k) for k in ("cep", "logradouro", "numero", "cmun")):
+                f.append("endereço")
+            return f
+        lista = [{"cnpj": d, "nome": c["nome"], "usado": c.get("usado", ""), "falta": falta(c),
                   "unidades": [{"nome": u, **v} for u, v in sorted(c.get("unidades", {}).items())]}
                  for d, c in dados.clientes(p).items()]
         return sorted(lista, key=lambda c: c["usado"], reverse=True)
