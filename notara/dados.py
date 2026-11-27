@@ -306,23 +306,75 @@ def perfil_compartilhado(pasta_compartilhada, cnpj):
     return ler_json(Path(pasta_compartilhada) / cnpj / "empresa.json", None)
 
 
+def _quando(x):
+    try:
+        return datetime.strptime(x.get("data", ""), "%d/%m/%Y %H:%M")
+    except ValueError:
+        return datetime(2000, 1, 1)
+
+
+def _juntar_historico(aqui, trazidos):
+    """Uma linha do tempo só: a mesma nota (chave) nunca duplica; o estado mais avançado vence
+    (cancelada > emitida > a confirmar) e o que só um lado sabe (envio por e-mail, XML) é mantido."""
+    peso = {"cancelada": 3, "emitida": 2, "pendente": 1}
+    por_chave, sem_chave = {}, []
+    for x in aqui + trazidos:
+        k = x.get("chave")
+        if not k:
+            sem_chave.append(x)
+            continue
+        atual = por_chave.get(k)
+        if atual is None:
+            por_chave[k] = dict(x)
+            continue
+        for campo, v in x.items():
+            if v and not atual.get(campo):
+                atual[campo] = v
+        if peso.get(x.get("situacao"), 0) > peso.get(atual.get("situacao"), 0):
+            atual["situacao"] = x["situacao"]
+        if x.get("enviado_em") and _quando({"data": x["enviado_em"]}) > _quando({"data": atual.get("enviado_em", "")}):
+            atual["enviado_em"], atual["enviado_para"] = x["enviado_em"], x.get("enviado_para", "")
+    emitidas = {x.get("ident") for x in por_chave.values() if x.get("ident")}
+    pendentes, vistos = [], set()
+    for x in sem_chave:  # "a confirmar" que o outro computador já resolveu some; repetidos também
+        if x.get("ident") in emitidas or (x.get("ident"), x.get("data")) in vistos:
+            continue
+        vistos.add((x.get("ident"), x.get("data")))
+        pendentes.append(x)
+    return sorted(list(por_chave.values()) + pendentes, key=_quando, reverse=True)
+
+
+def _juntar_clientes(aqui, trazidos):
+    """Clientes dos dois lados; nas unidades vale o uso mais recente; campos vazios são completados."""
+    norm = lambda c: c if isinstance(c, dict) else {"nome": c, "unidades": {}, "usado": ""}
+    saida = {d: norm(c) for d, c in aqui.items()}
+    for d, c in trazidos.items():
+        c = norm(c)
+        if d not in saida:
+            saida[d] = c
+            continue
+        a = saida[d]
+        for campo, v in c.items():
+            if campo != "unidades" and v and not a.get(campo):
+                a[campo] = v
+        if str(c.get("usado", "")) > str(a.get("usado", "")):
+            a["usado"] = c["usado"]
+        un = a.setdefault("unidades", {})
+        for nome, u in (c.get("unidades") or {}).items():
+            if nome not in un or str(u.get("usado", "")) > str(un[nome].get("usado", "")):
+                un[nome] = u
+    return saida
+
+
 def migrar_dados(origem: Path, destino: Path):
     """Ao ligar ou trocar a pasta compartilhada, leva histórico, clientes e numeração sem perder nada."""
     if origem.resolve() == destino.resolve():
         return
     with trava(destino):
-        h_dest = ler_json(destino / "historico.json", [])
-        chaves = {x.get("chave") for x in h_dest}
-        trazidos = ler_json(origem / "historico.json", [])
-        canceladas = {x.get("chave") for x in trazidos if x.get("situacao") == "cancelada"}
-        for x in h_dest:  # cancelada em qualquer lado vale como cancelada
-            if x.get("chave") in canceladas:
-                x["situacao"] = "cancelada"
-        h = h_dest + [x for x in trazidos if x.get("chave") not in chaves]
-        h.sort(key=lambda x: datetime.strptime(x.get("data", "01/01/2000 00:00"), "%d/%m/%Y %H:%M"), reverse=True)
+        h = _juntar_historico(ler_json(destino / "historico.json", []), ler_json(origem / "historico.json", []))
         gravar_json(destino / "historico.json", h)
-        gravar_json(destino / "clientes.json", {**ler_json(origem / "clientes.json", {}),
-                                                **ler_json(destino / "clientes.json", {})})
+        gravar_json(destino / "clientes.json", _juntar_clientes(ler_json(destino / "clientes.json", {}),
+                                                                ler_json(origem / "clientes.json", {})))
         n_o = ler_json(origem / "numeracao.json", {"series": {}, "proximo": {}})
         n_d = ler_json(destino / "numeracao.json", {"series": {}, "proximo": {}})
         for maq, serie in n_o["series"].items():
@@ -354,7 +406,7 @@ def salvar_cliente(perfil, doc, nome, unidade=None, valor=None, descricao=None, 
                 c[k] = str(v or "").strip()
         if valor is not None:
             c["usado"] = datetime.now().strftime("%Y-%m-%d %H:%M")
-            c["unidades"][unidade or ""] = {"valor": float(valor), "descricao": descricao or ""}
+            c["unidades"][unidade or ""] = {"valor": float(valor), "descricao": descricao or "", "usado": c["usado"]}
         gravar_json(pasta / "clientes.json", todos)
 
 

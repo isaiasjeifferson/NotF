@@ -144,6 +144,7 @@ details[open]>*:not(summary){animation:fadein var(--dur-2) var(--ease)}
 #emitir-btn.armado,.btn.primary.armado{animation:pulso 1s var(--ease) infinite alternate} @keyframes pulso{from{box-shadow:0 0 0 0 rgba(234,106,12,.45)}to{box-shadow:0 0 0 6px rgba(234,106,12,0)}}
 .sel-btn{display:inline-flex;align-items:center;gap:6px;margin-left:auto;padding:6px 10px;border-radius:8px;background:var(--fill);font:inherit;font-size:14px;color:var(--label);max-width:70%;transition:background var(--dur-1)} .sel-btn:hover{background:var(--fill2)} .sel-btn span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap} .sel-btn svg{color:var(--label2);flex:none}
 .trilho.contagem i{transition:width 1s linear}
+.field:has(input:placeholder-shown) label.rec::after{content:'Recomendado';margin-left:8px;padding:1px 7px;border-radius:99px;background:var(--accent-fill);color:var(--blue);font-size:11px;font-weight:600;vertical-align:1px}
 .aj-cab{display:flex;align-items:center;gap:14px;margin:2px 0 14px}
 .aj-logo{position:relative;width:64px;height:64px;border-radius:16px;flex:none;padding:0;overflow:hidden;background:#fff;box-shadow:inset 0 0 0 1px var(--sep)} .aj-logo img{width:100%;height:100%;object-fit:contain} .aj-logo .avatar{border-radius:16px} .aj-logo .lapis{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.45);color:#fff;opacity:0;transition:opacity .15s} .aj-logo:hover .lapis,.aj-logo:focus-visible .lapis{opacity:1}
 .pk-res{max-height:420px;overflow:auto} .pk-res .row{min-height:60px;padding:12px 16px;gap:12px} .pk-res .t{font-size:14px;margin-bottom:2px} .pk-res .s{white-space:normal;line-height:1.35}
@@ -912,10 +913,10 @@ const app={
     const alvo=i>=0?i:(this._h.push(x),this._h.length-1); el.dataset.i=alvo; this.menuNota(_,el); },
   async carregarDadosCliente(cnpj,box='#cli-dados'){
     const r=await api().cliente(cnpj); if(!r.ok||!$(box)) return; const c=r.cliente, P=box==='#cli-dados'?'c':'n';
-    const F=[['nome','Nome / Razão social',''],['email','E-mail',''],['fone','Telefone','(00) 00000-0000'],['im','Inscrição Municipal',''],
+    const F=[['nome','Nome / Razão social',''],['email','E-mail','Para enviar a nota ao cliente'],['fone','Telefone','(00) 00000-0000'],['im','Inscrição Municipal',''],
       ['cep','CEP','00000-000'],['logradouro','Endereço',''],['numero','Número',''],['complemento','Complemento',''],
       ['bairro','Bairro',''],['municipio','Cidade',''],['uf','Estado','']].filter(f=>P==='c'||f[0]!=='nome');
-    $(box).innerHTML=F.map(([k,r,ph])=>`<div class="field" id="f${P}-${k}"><label for="${P}-${k}" class="${k==='nome'?'req':''}">${r}</label><input id="${P}-${k}" data-k="${k}" value="${esc(c[k]||'')}" placeholder="${ph}" ${k==='uf'?'maxlength="2" style="text-transform:uppercase"':''}></div>`).join('')
+    $(box).innerHTML=F.map(([k,r,ph])=>`<div class="field" id="f${P}-${k}"><label for="${P}-${k}" class="${k==='nome'?'req':k==='email'?'rec':''}">${r}</label><input id="${P}-${k}" data-k="${k}" value="${esc(c[k]||'')}" placeholder="${ph}" ${k==='uf'?'maxlength="2" style="text-transform:uppercase"':''}></div>`).join('')
       +`<div class="field col" id="f${P}-info"><label for="${P}-info">Informações complementares</label><input id="${P}-info" data-k="info" value="${esc(c.info||'')}" ></div>`;
     const cepIn=$(`#${P}-cep`); let ultimoCep=dig(cepIn.value);
     const buscarCep=async()=>{ const d=dig(cepIn.value); if(d.length!==8||d===ultimoCep) return; ultimoCep=d;
@@ -1091,7 +1092,7 @@ const app={
         <div class="group">
           <div class="field" id="fa-im"><label for="a-im">Inscrição Municipal</label><input id="a-im" class="num" value="${esc(e.im||'')}" ></div>
           <div class="field" id="fa-fone"><label for="a-fone">Telefone</label><input id="a-fone" class="num" value="${esc(e.fone||'')}" placeholder="(00) 00000-0000"></div>
-          <div class="field" id="fa-email"><label for="a-email">E-mail</label><input id="a-email" value="${esc(e.email||'')}"></div>
+          <div class="field" id="fa-email"><label for="a-email" class="rec">E-mail</label><input id="a-email" value="${esc(e.email||'')}" placeholder="Aparece na nota e recebe as respostas"></div>
           <div class="field"><label for="a-ie">Inscrição Estadual</label><input id="a-ie" class="num" value="${esc(e.ie||'')}"></div>
         </div>
         <p class="hint">${e.im&&e.im_na_nota===false?'<b>A Inscrição Municipal não está indo nas notas:</b> a Receita recusou porque ela não está no cadastro nacional da NFS-e. Ela volta a ir quando você corrigir o número. ':''}A Inscrição Estadual fica guardada, mas não aparece na nota de serviço: ela só existe na nota de produto.</p>

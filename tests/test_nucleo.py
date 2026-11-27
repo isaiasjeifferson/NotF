@@ -201,7 +201,7 @@ def test_fluxo_completo_com_receita_simulada(ambiente):
     assert d.empresa()["teste_ok"] is True
     # cliente lembrado com unidade e último valor
     cli = api.clientes_salvos()
-    assert cli[0]["nome"] == NOTA["nome"] and cli[0]["unidades"][0] == {
+    assert cli[0]["nome"] == NOTA["nome"] and {k: v for k, v in cli[0]["unidades"][0].items() if k != "usado"} == {
         "nome": "Unidade Centro", "valor": 9173.8, "descricao": NOTA["descricao"]}
     # abrir só dentro da pasta de notas
     assert api.abrir_nota(item["chave"], "pdf")["ok"] is not None
@@ -495,3 +495,20 @@ def test_buscar_na_receita_traz_notas_de_fora_e_ultimo_numero(ambiente):
     assert r["ok"] and r["novas"] == 1 and r["ultima"] == 42
     assert d.historico(perfil)[0]["chave"] == chave and d.empresa()["adn_nsu"] == 7
     assert api.sincronizar_receita()["novas"] == 0
+
+
+def test_juntar_dois_computadores_em_uma_linha_do_tempo(ambiente):
+    d = ambiente.dados
+    a = [{"chave": "A", "data": "10/11/2026 09:00", "situacao": "emitida", "numero": "1"},
+         {"chave": "C", "data": "20/11/2026 09:00", "situacao": "emitida", "numero": "3"},
+         {"ident": "X", "data": "21/11/2026 10:00", "situacao": "pendente"}]
+    b = [{"chave": "B", "data": "15/11/2026 09:00", "situacao": "emitida", "numero": "2"},
+         {"chave": "C", "data": "20/11/2026 09:00", "situacao": "cancelada", "enviado_em": "20/11/2026 10:00"},
+         {"chave": "D", "ident": "X", "data": "21/11/2026 10:00", "situacao": "emitida", "numero": "4"}]
+    h = d._juntar_historico(a, b)
+    assert [x.get("chave") for x in h] == ["D", "C", "B", "A"]  # sem o "a confirmar" já resolvido, em ordem
+    c = next(x for x in h if x["chave"] == "C")
+    assert c["situacao"] == "cancelada" and c["enviado_em"] and c["numero"] == "3"
+    cl = d._juntar_clientes({"1": {"nome": "X", "usado": "2026-11-10 09:00", "unidades": {"U": {"valor": 1, "usado": "2026-11-10 09:00"}}}},
+                            {"1": {"nome": "X", "email": "x@x.com", "usado": "2026-11-20 09:00", "unidades": {"U": {"valor": 2, "usado": "2026-11-20 09:00"}, "V": {"valor": 3}}}})
+    assert cl["1"]["unidades"]["U"]["valor"] == 2 and "V" in cl["1"]["unidades"] and cl["1"]["email"] == "x@x.com"
